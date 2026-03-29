@@ -61,6 +61,6 @@ type AuditStore interface {
         ListHashedAnalyses(ctx context.Context, arg dbq.ListHashedAnalysesParams) ([]dbq.ListHashedAnalysesRow, error)
 }
 
-type StatsExec interface {
+type StatsExecer interface {
         Exec(ctx context.Context, sql string, arguments ...interface{}) (pgconn.CommandTag, error)
 }

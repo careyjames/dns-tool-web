@@ -393,11 +393,11 @@
     {{template "scripts" .}}
     <script nonce="{{.CspNonce}}">
     (function(){
-        var cards = document.querySelectorAll('.ttl-profile-card');
+        let cards = document.querySelectorAll('.ttl-profile-card');
         function updateActive(){
             cards.forEach(function(c){
-                var input = c.previousElementSibling;
-                var check = c.querySelector('.ttl-profile-check');
+                let input = c.previousElementSibling;
+                let check = c.querySelector('.ttl-profile-check');
                 if(input && input.checked){
                     c.classList.add('border-2', 'ttl-card-active');
                     c.classList.remove('ttl-card-inactive');
@@ -411,25 +411,25 @@
         }
         cards.forEach(function(c){
             c.addEventListener('click', function(){
-                var input = c.previousElementSibling;
+                let input = c.previousElementSibling;
                 if(input){ input.checked = true; }
                 updateActive();
             });
         });
         updateActive();
 
-        var form = document.querySelector('form[action="/ttl-tuner/analyze"]');
+        let form = document.querySelector('form[action="/ttl-tuner/analyze"]');
         if(form){
             form.addEventListener('submit', function(){
-                var btn = form.querySelector('button[type="submit"]');
+                let btn = form.querySelector('button[type="submit"]');
                 if(btn){
                     btn.disabled = true;
                     btn.innerHTML = '{{icon "spinner" "icon-spin me-2"}}Analyzing\u2026';
                 }
-                var overlay = document.createElement('div');
+                let overlay = document.createElement('div');
                 overlay.id = 'ttl-loading';
                 overlay.className = 'ttl-loading-overlay';
-                var box = document.createElement('div');
+                let box = document.createElement('div');
                 box.className = 'ttl-loading-box';
                 box.innerHTML = '<div class="ttl-scan-spinner">{{icon "spinner" "icon-spin icon-2x text-info"}}</div><div class="ttl-scan-title">Scanning DNS records\u2026</div><div class="ttl-scan-subtitle">This typically takes 5\u201310 seconds</div>';
                 overlay.appendChild(box);
@@ -437,7 +437,7 @@
             });
         }
 
-        var results = document.getElementById('ttl-results');
+        let results = document.getElementById('ttl-results');
         if(results){
             results.scrollIntoView({behavior:'smooth', block:'start'});
         }

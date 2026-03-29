@@ -6362,7 +6362,7 @@
         }
     }
 
-    var rfcExcerpts = {
+    let rfcExcerpts = {
         'rfc7208': {
             title: 'RFC 7208 — Sender Policy Framework (SPF)',
             subtitle: 'Standards Track · April 2014 · S. Kitterman',
@@ -6472,27 +6472,27 @@
     };
 
     function showRfcPopup(rfcId, sectionId) {
-        var rfc = rfcExcerpts[rfcId];
+        let rfc = rfcExcerpts[rfcId];
         if (!rfc) return false;
-        var section = sectionId ? rfc.sections[sectionId] : null;
+        let section = sectionId ? rfc.sections[sectionId] : null;
         if (sectionId && !section) return false;
 
-        var titleEl = document.getElementById('rfcPopupTitle');
-        var subtitleEl = document.getElementById('rfcPopupSubtitle');
-        var bodyEl = document.getElementById('rfcPopupBody');
-        var linkEl = document.getElementById('rfcPopupFullLink');
+        let titleEl = document.getElementById('rfcPopupTitle');
+        let subtitleEl = document.getElementById('rfcPopupSubtitle');
+        let bodyEl = document.getElementById('rfcPopupBody');
+        let linkEl = document.getElementById('rfcPopupFullLink');
 
         titleEl.textContent = rfc.title + (section ? ' — ' + section.heading : '');
         subtitleEl.textContent = rfc.subtitle;
 
-        var fullUrl = 'https://datatracker.ietf.org/doc/html/' + rfcId;
+        let fullUrl = 'https://datatracker.ietf.org/doc/html/' + rfcId;
         if (sectionId) fullUrl += '#section-' + sectionId;
         linkEl.href = fullUrl;
 
         if (section) {
-            var bodyText = section.text;
+            let bodyText = section.text;
             if (section.highlight) {
-                var parts = bodyText.split(section.highlight);
+                let parts = bodyText.split(section.highlight);
                 if (parts.length > 1) {
                     bodyEl.innerHTML = escapeHtml(parts[0])
                         + '<mark class="u-search-highlight">'
@@ -6509,28 +6509,28 @@
             bodyEl.textContent = '(Full RFC text — click "Full RFC" below to read on the IETF website.)';
         }
 
-        var rfcEl = document.getElementById('rfcPopupModal');
+        let rfcEl = document.getElementById('rfcPopupModal');
         rfcEl.removeAttribute('inert');
-        var modal = new bootstrap.Modal(rfcEl);
+        let modal = new bootstrap.Modal(rfcEl);
         rfcEl.addEventListener('hidden.bs.modal', function() { rfcEl.setAttribute('inert', ''); }, { once: true });
         modal.show();
         return true;
     }
 
     function escapeHtml(str) {
-        var d = document.createElement('div');
+        let d = document.createElement('div');
         d.appendChild(document.createTextNode(str));
         return d.innerHTML;
     }
 
     function setupRfcPopups() {
-        var rfcLinkPattern = /datatracker\.ietf\.org\/doc\/html\/(rfc\d+)(?:#section-([\d.]+))?/;
-        var links = document.querySelectorAll('a[href*="datatracker.ietf.org/doc/html/rfc"]');
+        let rfcLinkPattern = /datatracker\.ietf\.org\/doc\/html\/(rfc\d+)(?:#section-([\d.]+))?/;
+        let links = document.querySelectorAll('a[href*="datatracker.ietf.org/doc/html/rfc"]');
         for (const link of links) {
-            var m = link.href.match(rfcLinkPattern);
+            let m = link.href.match(rfcLinkPattern);
             if (!m) continue;
-            var rfcId = m[1];
-            var sectionId = m[2] || null;
+            let rfcId = m[1];
+            let sectionId = m[2] || null;
             if (!rfcExcerpts[rfcId]) continue;
             if (sectionId && !(rfcExcerpts[rfcId].sections[sectionId])) continue;
             link.addEventListener('click', function(e) {

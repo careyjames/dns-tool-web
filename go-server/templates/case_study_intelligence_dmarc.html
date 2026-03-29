@@ -334,13 +334,13 @@
             <div class="cs-section">
                 <h2>Read the Record</h2>
                 <p>Here is the CIA&rsquo;s actual DMARC record, pulled from public DNS on March 19, 2026:</p>
-                <div class="dns-records" role="figure" aria-label="CIA DMARC record from public DNS, March 19, 2026">
+                <figure class="dns-records" aria-label="CIA DMARC record from public DNS, March 19, 2026">
                     <span class="rec-label">Host:</span> _dmarc.cia.gov<br>
                     <span class="rec-label">Record:</span> v=DMARC1; <span class="rec-watch">p=quarantine</span>; <span class="rec-watch">sp=quarantine</span>; pct=100;<br>
                     &nbsp;&nbsp;rua=mailto:demarcreports@uce.cia.gov;<br>
                     &nbsp;&nbsp;<span class="rec-pass">ruf=mailto:demarcfailures@uce.cia.gov</span>;<br>
                     &nbsp;&nbsp;ri=86400; <span class="rec-pass">aspf=s</span>; <span class="rec-pass">adkim=s</span>; <span class="rec-pass">fo=1</span>
-                </div>
+                </figure>
                 <p>Now read it slowly. This is not a misconfiguration. This is a configuration.</p>
                 <ul>
                     <li><code>p=quarantine</code> &mdash; Spoofed messages are not rejected at the SMTP layer. They are quarantined. The receiving mail server still <em>processes</em> them.</li>
@@ -541,7 +541,7 @@
             <div class="cs-section">
                 <h2>Verify It Yourself</h2>
                 <p>Every observation in this case study is derived from public DNS records. You can reproduce every finding with standard tools:</p>
-                <div class="verify-block" role="figure" aria-label="DNS verification commands for reproducing findings">
+                <figure class="verify-block" aria-label="DNS verification commands for reproducing findings">
                     <span class="comment"># CIA DMARC record</span><br>
                     <span class="cmd">dig TXT _dmarc.cia.gov +short</span><br><br>
                     <span class="comment"># ODNI DMARC record</span><br>
@@ -554,7 +554,7 @@
                     <span class="cmd">dig TXT _dmarc.cisa.gov +short</span><br><br>
                     <span class="comment"># Compare any agency</span><br>
                     <span class="cmd">dig TXT _dmarc.[agency].gov +short</span>
-                </div>
+                </figure>
                 <p class="mt-2" style="font-size:0.82rem;color:#8b949e">DNS records are public by design. The Domain Name System is an open, distributed, queryable database. That is not an accident. It is the architecture.</p>
             </div>
 
@@ -573,10 +573,10 @@
             <div class="cs-section">
                 <div class="share-bar" style="border-top:none;padding-top:0;margin-top:0">
                     <span class="share-bar-label">{{icon "share-alt"}} Share:</span>
-                    <button type="button" class="share-btn" id="copyLinkBtn" aria-label="Copy link to clipboard">{{icon "link"}} Copy Link</button>
-                    <a href="https://twitter.com/intent/tweet?url=https%3A%2F%2Fdnstool.it-help.tech%2Fcase-study%2Fintelligence-dmarc&text=Domain%20Confessions%20%232%3A%20Two%20intelligence%20agencies%20are%20the%20only%20federal%20agencies%20that%20haven%27t%20upgraded%20to%20DMARC%20reject.%20Their%20DNS%20records%20suggest%20why." class="share-btn" target="_blank" rel="noopener noreferrer" aria-label="Share on X (Twitter)">{{icon "twitter"}} Post</a>
-                    <a href="https://www.linkedin.com/sharing/share-offsite/?url=https%3A%2F%2Fdnstool.it-help.tech%2Fcase-study%2Fintelligence-dmarc" class="share-btn" target="_blank" rel="noopener noreferrer" aria-label="Share on LinkedIn">{{icon "linkedin"}} Share</a>
-                    <a href="mailto:?subject=Domain%20Confessions%20%232%20%E2%80%94%20The%20Intelligence%20Agency%20That%20Chose%20to%20Watch&body=Two%20intelligence%20agencies%20are%20the%20only%20federal%20agencies%20that%20haven%27t%20upgraded%20to%20DMARC%20reject.%20Their%20DNS%20records%20suggest%20this%20may%20be%20deliberate.%0A%0Ahttps%3A%2F%2Fdnstool.it-help.tech%2Fcase-study%2Fintelligence-dmarc" class="share-btn" aria-label="Share via email">{{icon "envelope"}} Email</a>
+                    <button type="button" class="share-btn" id="copyLinkBtn"><span aria-hidden="true">{{icon "link"}}</span> Copy Link</button>
+                    <a href="https://twitter.com/intent/tweet?url=https%3A%2F%2Fdnstool.it-help.tech%2Fcase-study%2Fintelligence-dmarc&text=Domain%20Confessions%20%232%3A%20Two%20intelligence%20agencies%20are%20the%20only%20federal%20agencies%20that%20haven%27t%20upgraded%20to%20DMARC%20reject.%20Their%20DNS%20records%20suggest%20why." class="share-btn" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">{{icon "twitter"}}</span> Post</a>
+                    <a href="https://www.linkedin.com/sharing/share-offsite/?url=https%3A%2F%2Fdnstool.it-help.tech%2Fcase-study%2Fintelligence-dmarc" class="share-btn" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">{{icon "linkedin"}}</span> Share</a>
+                    <a href="mailto:?subject=Domain%20Confessions%20%232%20%E2%80%94%20The%20Intelligence%20Agency%20That%20Chose%20to%20Watch&body=Two%20intelligence%20agencies%20are%20the%20only%20federal%20agencies%20that%20haven%27t%20upgraded%20to%20DMARC%20reject.%20Their%20DNS%20records%20suggest%20this%20may%20be%20deliberate.%0A%0Ahttps%3A%2F%2Fdnstool.it-help.tech%2Fcase-study%2Fintelligence-dmarc" class="share-btn"><span aria-hidden="true">{{icon "envelope"}}</span> Email</a>
                 </div>
                 <div class="video-cta">
                     <a href="/" class="cta-primary">{{icon "search"}} Scan Your Domain</a>
@@ -592,10 +592,10 @@
     {{template "scripts" .}}
     <script nonce="{{.CspNonce}}">
     (function() {
-        var btn = document.getElementById('copyLinkBtn');
+        let btn = document.getElementById('copyLinkBtn');
         if (!btn) return;
         btn.addEventListener('click', function() {
-            var url = 'https://dnstool.it-help.tech/case-study/intelligence-dmarc';
+            let url = 'https://dnstool.it-help.tech/case-study/intelligence-dmarc';
             if (navigator.clipboard && navigator.clipboard.writeText) {
                 navigator.clipboard.writeText(url).then(function() {
                     btn.classList.add('share-copied');

@@ -62,7 +62,7 @@ type AnalysisHandler struct {
         DimCharts       *icuae.DimensionCharts
         ProgressStore   *ProgressStore
         analysisStore   AnalysisStore
-        statsExec       StatsExec
+        statsExec       StatsExecer
 }
 
 func (h *AnalysisHandler) store() AnalysisStore {
@@ -75,7 +75,7 @@ func (h *AnalysisHandler) store() AnalysisStore {
         return nil
 }
 
-func (h *AnalysisHandler) execer() StatsExec {
+func (h *AnalysisHandler) execer() StatsExecer {
         if h.statsExec != nil {
                 return h.statsExec
         }
@@ -311,63 +311,93 @@ func isAnalysisFailure(results map[string]any) (bool, string) {
         return true, errMsg
 }
 
-func (h *AnalysisHandler) Analyze(c *gin.Context) {
-        nonce, ok := c.Get("csp_nonce")
+func getContextValue(c *gin.Context, key string) any {
+        v, ok := c.Get(key)
         if !ok {
-                nonce = ""
+                return ""
         }
-        csrfToken, ok := c.Get("csrf_token")
-        if !ok {
-                csrfToken = ""
-        }
+        return v
+}
 
+func isAgentCacheEligible(c *gin.Context, customSelectors []string, exposureChecks bool) bool {
+        return c.Request.Method == http.MethodGet && c.Query("src") == "agent" && len(customSelectors) == 0 && !exposureChecks
+}
+
+type analyzeInput struct {
+        domain, asciiDomain              string
+        customSelectors                  []string
+        exposureChecks, devNull          bool
+        isAuthenticated                  bool
+        userID                           int32
+        hasNovelSelectors, ephemeral     bool
+}
+
+func extractAnalyzeInput(c *gin.Context) (analyzeInput, bool) {
         domain := extractDomainInput(c)
         if domain == "" {
-                h.renderIndexFlash(c, nonce, csrfToken, mapKeyDanger, "Please enter a domain name.")
-                return
+                return analyzeInput{}, false
         }
-
         if !dnsclient.ValidateDomain(domain) && !analyzer.IsWeb3Input(domain) {
-                h.renderIndexFlash(c, nonce, csrfToken, mapKeyDanger, fmt.Sprintf("Invalid domain name: %s", domain))
-                return
+                return analyzeInput{}, false
         }
-
         asciiDomain, err := dnsclient.DomainToASCII(domain)
         if err != nil {
                 asciiDomain = domain
         }
-
         customSelectors := extractCustomSelectors(c)
         hasNovelSelectors := len(customSelectors) > 0 && !analyzer.AllSelectorsKnown(customSelectors)
         exposureChecks := c.PostForm("exposure_checks") == "1"
         devNull := c.PostForm("devnull") == "1"
-
         isAuthenticated, userID := extractAuthInfo(c)
         ephemeral := devNull || (hasNovelSelectors && !isAuthenticated)
+        return analyzeInput{
+                domain: domain, asciiDomain: asciiDomain,
+                customSelectors: customSelectors, exposureChecks: exposureChecks,
+                devNull: devNull, isAuthenticated: isAuthenticated, userID: userID,
+                hasNovelSelectors: hasNovelSelectors, ephemeral: ephemeral,
+        }, true
+}
 
-        wantsJSON := strings.Contains(c.GetHeader("Accept"), "application/json") && c.Request.Method == "POST"
+func (h *AnalysisHandler) tryServeFromCache(c *gin.Context, inp analyzeInput, nonce, csrfToken any) bool {
+        if !isAgentCacheEligible(c, inp.customSelectors, inp.exposureChecks) {
+                return false
+        }
+        if h.serveCachedAnalysis(c, inp.domain, inp.asciiDomain, nonce, csrfToken) {
+                return true
+        }
+        return inp.domain != inp.asciiDomain && h.serveCachedAnalysis(c, inp.asciiDomain, inp.asciiDomain, nonce, csrfToken)
+}
 
-        if wantsJSON {
-                h.analyzeAsync(c, domain, asciiDomain, customSelectors, exposureChecks, devNull, isAuthenticated, userID, hasNovelSelectors, ephemeral)
+func (h *AnalysisHandler) Analyze(c *gin.Context) {
+        nonce := getContextValue(c, "csp_nonce")
+        csrfToken := getContextValue(c, "csrf_token")
+
+        inp, valid := extractAnalyzeInput(c)
+        if !valid {
+                domain := extractDomainInput(c)
+                msg := "Please enter a domain name."
+                if domain != "" {
+                        msg = fmt.Sprintf("Invalid domain name: %s", domain)
+                }
+                h.renderIndexFlash(c, nonce, csrfToken, mapKeyDanger, msg)
                 return
         }
 
-        if c.Request.Method == http.MethodGet && c.Query("src") == "agent" && len(customSelectors) == 0 && !exposureChecks {
-                if served := h.serveCachedAnalysis(c, domain, asciiDomain, nonce, csrfToken); served {
-                        return
-                }
-                if domain != asciiDomain {
-                        if served := h.serveCachedAnalysis(c, asciiDomain, asciiDomain, nonce, csrfToken); served {
-                                return
-                        }
-                }
+        wantsJSON := strings.Contains(c.GetHeader("Accept"), "application/json") && c.Request.Method == "POST"
+        if wantsJSON {
+                h.analyzeAsync(c, inp.domain, inp.asciiDomain, inp.customSelectors, inp.exposureChecks, inp.devNull, inp.isAuthenticated, inp.userID, inp.hasNovelSelectors, inp.ephemeral)
+                return
+        }
+
+        if h.tryServeFromCache(c, inp, nonce, csrfToken) {
+                return
         }
 
         startTime := time.Now()
         ctx := c.Request.Context()
 
-        results := h.Analyzer.AnalyzeDomain(ctx, asciiDomain, customSelectors, analyzer.AnalysisOptions{
-                ExposureChecks: exposureChecks,
+        results := h.Analyzer.AnalyzeDomain(ctx, inp.asciiDomain, inp.customSelectors, analyzer.AnalysisOptions{
+                ExposureChecks: inp.exposureChecks,
         })
         analysisDuration := time.Since(startTime).Seconds()
 
@@ -379,14 +409,14 @@ func (h *AnalysisHandler) Analyze(c *gin.Context) {
                 return
         }
 
-        h.enrichResultsNoHistory(c, asciiDomain, results)
+        h.enrichResultsNoHistory(c, inp.asciiDomain, results)
 
         domainExists := resultsDomainExists(results)
         clientIP := c.ClientIP()
         countryCode, countryName := lookupCountry(clientIP)
-        scanClass := scanner.Classify(asciiDomain, clientIP)
+        scanClass := scanner.Classify(inp.asciiDomain, clientIP)
         postureHash := analyzer.CanonicalPostureHash(results)
-        drift := h.detectDrift(ctx, devNull, domainExists, asciiDomain, postureHash, results)
+        drift := h.detectDrift(ctx, inp.devNull, domainExists, inp.asciiDomain, postureHash, results)
 
         h.snapshotICAEMetrics(ctx, results)
 
@@ -394,31 +424,31 @@ func (h *AnalysisHandler) Analyze(c *gin.Context) {
                 results["_request_source"] = "agent"
         }
 
-        isPrivate := hasNovelSelectors && isAuthenticated
+        isPrivate := inp.hasNovelSelectors && inp.isAuthenticated
         analysisID, timestamp := h.persistOrLogEphemeral(c.Request.Context(), persistParams{
-                domain:            domain,
-                asciiDomain:       asciiDomain,
+                domain:            inp.domain,
+                asciiDomain:       inp.asciiDomain,
                 results:           results,
                 analysisDuration:  analysisDuration,
                 countryCode:       countryCode,
                 countryName:       countryName,
                 isPrivate:         isPrivate,
-                hasNovelSelectors: hasNovelSelectors,
+                hasNovelSelectors: inp.hasNovelSelectors,
                 scanClass:         scanClass,
-                ephemeral:         ephemeral,
+                ephemeral:         inp.ephemeral,
                 domainExists:      domainExists,
-                devNull:           devNull,
+                devNull:           inp.devNull,
         })
 
-        h.storeTelemetry(c.Request.Context(), analysisID, results, ephemeral)
+        h.storeTelemetry(c.Request.Context(), analysisID, results, inp.ephemeral)
 
         analysisSuccess, _ := extractAnalysisError(results) //nolint:errcheck // error message not needed here
         h.handlePostAnalysisSideEffects(ctx, c, sideEffectsParams{
-                asciiDomain:      asciiDomain,
+                asciiDomain:      inp.asciiDomain,
                 analysisID:       analysisID,
-                isAuthenticated:  isAuthenticated,
-                userID:           userID,
-                ephemeral:        ephemeral,
+                isAuthenticated:  inp.isAuthenticated,
+                userID:           inp.userID,
+                ephemeral:        inp.ephemeral,
                 domainExists:     domainExists,
                 drift:            drift,
                 postureHash:      postureHash,
@@ -428,25 +458,25 @@ func (h *AnalysisHandler) Analyze(c *gin.Context) {
                 isScanFlagged:    scanClass.IsScan,
         })
 
-        h.recordCurrencyIfEligible(ephemeral, domainExists, asciiDomain, results)
+        h.recordCurrencyIfEligible(inp.ephemeral, domainExists, inp.asciiDomain, results)
 
         analyzeData := h.buildAnalyzeViewData(c, nonce, csrfToken, viewDataInput{
-                domain:           domain,
-                asciiDomain:      asciiDomain,
+                domain:           inp.domain,
+                asciiDomain:      inp.asciiDomain,
                 results:          results,
                 analysisID:       analysisID,
                 analysisDuration: analysisDuration,
                 timestamp:        timestamp,
                 postureHash:      postureHash,
                 drift:            drift,
-                exposureChecks:   exposureChecks,
-                ephemeral:        ephemeral,
-                devNull:          devNull,
+                exposureChecks:   inp.exposureChecks,
+                ephemeral:        inp.ephemeral,
+                devNull:          inp.devNull,
                 isPrivate:        isPrivate,
         })
 
-        applyDevNullHeaders(c, devNull)
-        mode := resolveCovertMode(c, asciiDomain)
+        applyDevNullHeaders(c, inp.devNull)
+        mode := resolveCovertMode(c, inp.asciiDomain)
         analyzeData["CovertMode"] = isCovertMode(mode)
         analyzeData["ReportMode"] = mode
 

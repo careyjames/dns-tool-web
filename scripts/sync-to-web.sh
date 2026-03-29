@@ -193,11 +193,54 @@ if os.path.exists(sonar_props):
     content = content.replace('sonar.projectKey=dns-tool-full', 'sonar.projectKey=dns-tool-web')
     import re
     content = re.sub(r'sonar\.projectName=.*', 'sonar.projectName=DNS Tool · Public Mirror (dns-tool-web)', content)
-    content = re.sub(r'sonar\.issue\.ignore\.multicriteria\.\w+\.ruleKey=.*\n'
-                     r'sonar\.issue\.ignore\.multicriteria\.\w+\.resourceKey=.*_intel\.go\n?', '', content)
+    INTEL_ONLY_PATTERNS = [
+        '_intel.go',
+        'go-server/cmd/probe/',
+        'go-server/internal/handlers/admin_probes',
+    ]
+    def is_intel_only_rule(block):
+        for pat in INTEL_ONLY_PATTERNS:
+            if pat in block:
+                return True
+        return False
+    lines = content.split('\n')
+    filtered = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        if re.match(r'^sonar\.issue\.ignore\.multicriteria\.\w+\.ruleKey=', line):
+            resource_line = lines[i + 1] if i + 1 < len(lines) else ''
+            if is_intel_only_rule(resource_line):
+                comment_start = len(filtered) - 1
+                while comment_start >= 0 and filtered[comment_start].startswith('#'):
+                    comment_start -= 1
+                filtered = filtered[:comment_start + 1]
+                i += 2
+                while i < len(lines) and lines[i] == '':
+                    i += 1
+                continue
+            else:
+                filtered.append(line)
+                i += 1
+        else:
+            filtered.append(line)
+            i += 1
+    content = '\n'.join(filtered)
+    multicriteria_match = re.search(r'^sonar\.issue\.ignore\.multicriteria=(.*)', content, re.MULTILINE)
+    if multicriteria_match:
+        keys = multicriteria_match.group(1).split(',')
+        remaining_keys = [k for k in keys if f'multicriteria.{k}.ruleKey=' in content]
+        content = content.replace(multicriteria_match.group(0),
+            f'sonar.issue.ignore.multicriteria={",".join(remaining_keys)}')
     content = re.sub(r'(sonar\.cpd\.exclusions=)(.*)', lambda m: m.group(1) + ','.join(
         p for p in m.group(2).split(',') if '_intel.go' not in p
     ) if any(p for p in m.group(2).split(',') if '_intel.go' not in p) else '', content)
+    content = re.sub(r'sonar\.coverage\.exclusions=(.*)$',
+        lambda m: 'sonar.coverage.exclusions=' + ','.join(
+            p for p in m.group(1).split(',')
+            if 'probe' not in p.lower()
+        ), content, flags=re.MULTILINE)
+    content = re.sub(r'\n{3,}', '\n\n', content)
     with open(sonar_props, 'w') as f:
         f.write(content)
     if 'dns-tool-web' in content and 'dns-tool-full' not in content:

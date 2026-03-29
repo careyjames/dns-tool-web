@@ -308,10 +308,10 @@
     {{if .ShowResults}}
     <script nonce="{{.CspNonce}}">
     (function() {
-        var btn = document.getElementById('btnCopyReportLink');
+        const btn = document.getElementById('btnCopyReportLink');
         if (btn) {
             btn.addEventListener('click', function() {
-                var url = '{{.BaseURL}}/analysis/{{.AnalysisID}}';
+                const url = '{{.BaseURL}}/analysis/{{.AnalysisID}}';
                 navigator.clipboard.writeText(url).then(function() {
                     btn.innerHTML = '{{icon "check" "me-1"}}Copied!';
                     setTimeout(function() {
@@ -329,15 +329,16 @@
             }, 1200);
         }
         function copyCodeBlock(el) {
-            var text = el.textContent.trim();
+            const text = el.textContent.trim();
             navigator.clipboard.writeText(text).then(function() {
                 handleCopyResult(el, text);
             });
         }
+        function handleCodeBlockClick() { copyCodeBlock(this); }
         document.querySelectorAll('.code-block').forEach(function(el) {
             el.style.cursor = 'pointer';
             el.title = 'Click to copy';
-            el.addEventListener('click', function() { copyCodeBlock(el); });
+            el.addEventListener('click', handleCodeBlockClick);
         });
     })();
     </script>

@@ -192,44 +192,48 @@ func AnalyzeRateLimit(limiter RateLimiter) gin.HandlerFunc {
         }
 }
 
+func extractAgentDomain(c *gin.Context) string {
+        for _, key := range []string{"q", "domain", "query", "search", "searchTerms"} {
+                if v := strings.TrimSpace(c.Query(key)); v != "" {
+                        return v
+                }
+        }
+        return ""
+}
+
+func respondAgentRateLimited(c *gin.Context, result RateLimitResult) {
+        msg := rateLimitMessage(result)
+        if strings.Contains(c.GetHeader("Accept"), "application/json") || strings.HasSuffix(c.Request.URL.Path, "/api") {
+                c.JSON(http.StatusTooManyRequests, gin.H{
+                        "error":           msg,
+                        mapKeyReason:      result.Reason,
+                        mapKeyWaitSeconds: result.WaitSeconds,
+                })
+        } else {
+                c.Data(http.StatusTooManyRequests, "text/html; charset=utf-8",
+                        []byte(fmt.Sprintf(`<!DOCTYPE html><html><head><title>DNS Tool Agent — Rate Limited</title></head><body><h1>Rate Limited</h1><p>%s</p></body></html>`, msg)))
+        }
+}
+
 func AgentRateLimit(limiter RateLimiter) gin.HandlerFunc {
         return func(c *gin.Context) {
                 if c.Request.Method != http.MethodGet {
                         c.Next()
                         return
                 }
-
-                var domain string
-                for _, key := range []string{"q", "domain", "query", "search", "searchTerms"} {
-                        if v := strings.TrimSpace(c.Query(key)); v != "" {
-                                domain = v
-                                break
-                        }
-                }
+                domain := extractAgentDomain(c)
                 if domain == "" {
                         c.Next()
                         return
                 }
-
                 clientIP := c.ClientIP()
                 result := limiter.CheckAndRecord(clientIP, strings.ToLower(domain))
-
                 if !result.Allowed {
                         logRateLimitTriggered(c, clientIP, domain, result)
-                        if strings.Contains(c.GetHeader("Accept"), "application/json") || strings.HasSuffix(c.Request.URL.Path, "/api") {
-                                c.JSON(http.StatusTooManyRequests, gin.H{
-                                        "error":           rateLimitMessage(result),
-                                        mapKeyReason:      result.Reason,
-                                        mapKeyWaitSeconds: result.WaitSeconds,
-                                })
-                        } else {
-                                c.Data(http.StatusTooManyRequests, "text/html; charset=utf-8",
-                                        []byte(fmt.Sprintf(`<!DOCTYPE html><html><head><title>DNS Tool Agent — Rate Limited</title></head><body><h1>Rate Limited</h1><p>%s</p></body></html>`, rateLimitMessage(result))))
-                        }
+                        respondAgentRateLimited(c, result)
                         c.Abort()
                         return
                 }
-
                 c.Next()
         }
 }

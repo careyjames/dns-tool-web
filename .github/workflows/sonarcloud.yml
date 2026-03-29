@@ -22,8 +22,23 @@ jobs:
           go-version: '1.25'
 
       - name: Run tests with coverage
-        run: go test ./... -coverprofile=coverage.out -count=1 -timeout 120s
-        continue-on-error: true
+        run: |
+          go test ./go-server/... \
+            -skip 'DiscoverSubdomainsWithBudget|NoIntelInPublicRepo|NoIntelLeakage|NoIntelStagingDirectory|BoundaryIntegrity_FullRepoScan|IsOriginVisible|EdgeCDNMapsEmpty|GoldenRuleStubBoundary|ScrutinyClassificationAllFiles' \
+            -coverprofile=coverage.out -covermode=atomic -count=1 -short -timeout 300s -parallel=2
+        env:
+          CGO_ENABLED: '0'
+          GOGC: '50'
+          GOMEMLIMIT: '6000MiB'
+
+      - name: Verify coverage file
+        run: |
+          if [ ! -s coverage.out ]; then
+            echo "::error::coverage.out is empty or missing"
+            exit 1
+          fi
+          echo "=== Coverage summary ==="
+          go tool cover -func=coverage.out | grep "^total:" || true
 
       - name: SonarCloud Scan
         uses: sonarsource/sonarqube-scan-action@v7

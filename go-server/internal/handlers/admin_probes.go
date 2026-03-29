@@ -319,58 +319,62 @@ func parseSSHKey(b64Key, label string) (ssh.Signer, error) {
         return signer, nil
 }
 
+func findPEMHeader(tokens []string) (header string, nextIdx int, ok bool) {
+        i := 0
+        for i < len(tokens) && !strings.HasSuffix(tokens[i], "-----") {
+                i++
+        }
+        if i >= len(tokens) {
+                return "", 0, false
+        }
+        return strings.Join(tokens[:i+1], " "), i + 1, true
+}
+
+func findPEMFooter(tokens []string, start int) (footer string, bodyTokens []string) {
+        j := len(tokens) - 1
+        for j > start && !strings.HasPrefix(tokens[j], "-----") {
+                j--
+        }
+        endStart := j
+        for endStart > start && !strings.HasPrefix(tokens[endStart], "-----") {
+                endStart--
+        }
+        if endStart >= start {
+                return strings.Join(tokens[endStart:], " "), tokens[start:endStart]
+        }
+        return "", tokens[start:]
+}
+
+func wrapPEMBody(header, body, footer string) string {
+        var lines []string
+        lines = append(lines, header)
+        for k := 0; k < len(body); k += 70 {
+                end := k + 70
+                if end > len(body) {
+                        end = len(body)
+                }
+                lines = append(lines, body[k:end])
+        }
+        if footer != "" {
+                lines = append(lines, footer)
+        }
+        return strings.Join(lines, "\n") + "\n"
+}
+
 func normalizePEM(s string) string {
         s = strings.ReplaceAll(s, "\\n", "\n")
 
-        if !strings.Contains(s, "\n") || (strings.Contains(s, " ") && strings.Count(s, "\n") < 3) {
-                tokens := strings.Fields(s)
-                var header, footer string
-                var bodyTokens []string
-
-                i := 0
-                for i < len(tokens) && !strings.HasSuffix(tokens[i], "-----") {
-                        i++
-                }
-                if i < len(tokens) {
-                        header = strings.Join(tokens[:i+1], " ")
-                        i++
-                } else {
-                        return s
-                }
-
-                j := len(tokens) - 1
-                for j > i && !strings.HasPrefix(tokens[j], "-----") {
-                        j--
-                }
-                endStart := j
-                for endStart > i && !strings.HasPrefix(tokens[endStart], "-----") {
-                        endStart--
-                }
-                if endStart >= i {
-                        footer = strings.Join(tokens[endStart:], " ")
-                        bodyTokens = tokens[i:endStart]
-                } else {
-                        bodyTokens = tokens[i:]
-                }
-
-                body := strings.Join(bodyTokens, "")
-
-                var lines []string
-                lines = append(lines, header)
-                for k := 0; k < len(body); k += 70 {
-                        end := k + 70
-                        if end > len(body) {
-                                end = len(body)
-                        }
-                        lines = append(lines, body[k:end])
-                }
-                if footer != "" {
-                        lines = append(lines, footer)
-                }
-                return strings.Join(lines, "\n") + "\n"
+        if strings.Contains(s, "\n") && !(strings.Contains(s, " ") && strings.Count(s, "\n") < 3) {
+                return s
         }
 
-        return s
+        tokens := strings.Fields(s)
+        header, nextIdx, ok := findPEMHeader(tokens)
+        if !ok {
+                return s
+        }
+        footer, bodyTokens := findPEMFooter(tokens, nextIdx)
+        return wrapPEMBody(header, strings.Join(bodyTokens, ""), footer)
 }
 
 func executeSSH(ctx context.Context, target *sshTarget, script string) (string, error) {

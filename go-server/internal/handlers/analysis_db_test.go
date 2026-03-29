@@ -151,11 +151,11 @@ func (m *mockAnalysisStore) GetRecentAnalysisByDomain(ctx context.Context, domai
         return dbq.DomainAnalysis{}, nil
 }
 
-type mockStatsExec struct {
+type mockStatsExecer struct {
         ExecFn func(ctx context.Context, sql string, arguments ...interface{}) (pgconn.CommandTag, error)
 }
 
-func (m *mockStatsExec) Exec(ctx context.Context, sql string, arguments ...interface{}) (pgconn.CommandTag, error) {
+func (m *mockStatsExecer) Exec(ctx context.Context, sql string, arguments ...interface{}) (pgconn.CommandTag, error) {
         if m.ExecFn != nil {
                 return m.ExecFn(ctx, sql, arguments...)
         }
@@ -494,7 +494,7 @@ func TestRecordDailyStats_ExecCalled(t *testing.T) {
         var capturedSQL string
         var sqlMu sync.Mutex
 
-        mockExec := &mockStatsExec{
+        mockExec := &mockStatsExecer{
                 ExecFn: func(ctx context.Context, sql string, arguments ...interface{}) (pgconn.CommandTag, error) {
                         execCalled.Add(1)
                         sqlMu.Lock()
