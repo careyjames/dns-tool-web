@@ -167,18 +167,18 @@
     {{template "body_scripts" .}}
     <script nonce="{{.CspNonce}}">
     (function(){
-        var modal = null;
+        let modal = null;
         document.addEventListener('click', function(e) {
-            var btn = e.target.closest('.log-detail-btn');
+            let btn = e.target.closest('.log-detail-btn');
             if (!btn) return;
-            var attrs = btn.getAttribute('data-attrs');
-            var msg = btn.getAttribute('data-msg');
-            var msgEl = document.getElementById('logDetailMsg');
-            var attrsEl = document.getElementById('logDetailAttrs');
+            let attrs = btn.dataset.attrs;
+            let msg = btn.dataset.msg;
+            let msgEl = document.getElementById('logDetailMsg');
+            let attrsEl = document.getElementById('logDetailAttrs');
             if (msgEl) msgEl.textContent = msg || '';
             if (attrsEl) attrsEl.textContent = attrs || '{}';
             if (!modal) {
-                var el = document.getElementById('logDetailModal');
+                let el = document.getElementById('logDetailModal');
                 if (el && typeof bootstrap !== 'undefined') {
                     modal = new bootstrap.Modal(el);
                 }

@@ -62,7 +62,7 @@
                             </thead>
                             <tbody>
                                 {{range $a := .Analyses}}
-                                <tr class="compare-row u-pointer" data-id="{{$a.ID}}" tabindex="0" role="button" aria-label="Select analysis from {{$a.CreatedAt}}" aria-pressed="false">
+                                <tr class="compare-row u-pointer" data-id="{{$a.ID}}" tabindex="0" aria-label="Select analysis from {{$a.CreatedAt}}" aria-pressed="false" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
                                     <td>{{icon "square" "compare-check"}}</td>
                                     <td>
                                         {{$a.CreatedAt}}

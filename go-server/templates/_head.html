@@ -39,7 +39,7 @@
 
 {{define "head_katex"}}
 <link rel="stylesheet" href="/static/vendor/katex/katex.min.css" id="katex-css" media="print" {{staticSRI "vendor/katex/katex.min.css"}}>
-<script nonce="{{.CspNonce}}">var kl=document.getElementById('katex-css');if(kl){kl.addEventListener('load',function(){kl.media='all'});}</script>
+<script nonce="{{.CspNonce}}">let kl=document.getElementById('katex-css');if(kl){kl.addEventListener('load',function(){kl.media='all'});}</script>
 <noscript><link rel="stylesheet" href="/static/vendor/katex/katex.min.css" {{staticSRI "vendor/katex/katex.min.css"}}></noscript>
 <script defer nonce="{{.CspNonce}}" src="/static/vendor/katex/katex.min.js" {{staticSRI "vendor/katex/katex.min.js"}}></script>
 <script defer nonce="{{.CspNonce}}" src="/static/vendor/katex/auto-render.min.js" {{staticSRI "vendor/katex/auto-render.min.js"}}></script>

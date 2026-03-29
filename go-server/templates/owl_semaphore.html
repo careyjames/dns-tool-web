@@ -694,10 +694,10 @@
     {{template "scripts" .}}
     <script nonce="{{.CspNonce}}">
     (function() {
-        var btn = document.getElementById('bibtex-copy-btn');
+        const btn = document.getElementById('bibtex-copy-btn');
         if (btn) {
             btn.addEventListener('click', function() {
-                var el = document.getElementById('bibtex-text');
+                const el = document.getElementById('bibtex-text');
                 if (el) {
                     navigator.clipboard.writeText(el.textContent);
                     btn.textContent = 'Copied!';

@@ -60,23 +60,23 @@
     {{template "scripts" .}}
     <script nonce="{{.CspNonce}}">
     (function() {
-        var iframe = document.getElementById('sigFrame');
+        const iframe = document.getElementById('sigFrame');
         iframe.addEventListener('load', function() {
             try {
-                var doc = iframe.contentDocument || iframe.contentWindow.document;
-                var h = doc.body.scrollHeight + 20;
+                const doc = iframe.contentDocument || iframe.contentWindow.document;
+                const h = doc.body.scrollHeight + 20;
                 iframe.style.height = h + 'px';
             } catch(e) { /* cross-origin iframe — height auto-sizing unavailable */ } // NOSONAR
         });
-        var copyBtn = document.getElementById('btnCopy');
+        const copyBtn = document.getElementById('btnCopy');
         copyBtn.addEventListener('click', function() {
             try {
-                var doc = iframe.contentDocument || iframe.contentWindow.document;
-                var tbl = doc.querySelector('table');
+                const doc = iframe.contentDocument || iframe.contentWindow.document;
+                const tbl = doc.querySelector('table');
                 if (!tbl) return;
-                var range = doc.createRange();
+                const range = doc.createRange();
                 range.selectNodeContents(tbl);
-                var sel = iframe.contentWindow.getSelection();
+                const sel = iframe.contentWindow.getSelection();
                 sel.removeAllRanges();
                 sel.addRange(range);
                 iframe.contentDocument.execCommand('copy');

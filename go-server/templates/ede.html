@@ -1037,7 +1037,7 @@
     <script nonce="{{.CspNonce}}">
     document.querySelectorAll('[data-hash-toggle]').forEach(function(el) {
         el.addEventListener('click', function() {
-            var hashVal = this.nextElementSibling;
+            let hashVal = this.nextElementSibling;
             if (hashVal) {
                 hashVal.classList.toggle('d-none');
                 this.classList.toggle('ede-hash-toggle-active');
@@ -1046,14 +1046,14 @@
     });
 
     (function() {
-        var VISIBLE_COUNT = 3;
-        var cards = document.querySelectorAll('.ede-event-card');
-        var toggle = document.getElementById('edeShowAllToggle');
-        var label = document.getElementById('edeToggleLabel');
+        let VISIBLE_COUNT = 3;
+        let cards = document.querySelectorAll('.ede-event-card');
+        let toggle = document.getElementById('edeShowAllToggle');
+        let label = document.getElementById('edeToggleLabel');
         if (cards.length > VISIBLE_COUNT && toggle) {
-            var expanded = false;
-            var hiddenCount = cards.length - VISIBLE_COUNT;
-            for (var i = VISIBLE_COUNT; i < cards.length; i++) {
+            let expanded = false;
+            let hiddenCount = cards.length - VISIBLE_COUNT;
+            for (let i = VISIBLE_COUNT; i < cards.length; i++) {
                 cards[i].classList.add('ede-events-hidden');
             }
             label.textContent = 'Show all ' + cards.length + ' entries (' + hiddenCount + ' more)';
@@ -1061,7 +1061,7 @@
             toggle.classList.add('d-flex');
             toggle.addEventListener('click', function() {
                 expanded = !expanded;
-                for (var i = VISIBLE_COUNT; i < cards.length; i++) {
+                for (let i = VISIBLE_COUNT; i < cards.length; i++) {
                     if (expanded) {
                         cards[i].classList.remove('ede-events-hidden');
                     } else {
@@ -1070,7 +1070,7 @@
                 }
                 toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
                 label.textContent = expanded ? 'Show fewer entries' : 'Show all ' + cards.length + ' entries (' + hiddenCount + ' more)';
-                var icon = toggle.querySelector('svg, i');
+                let icon = toggle.querySelector('svg, i');
                 if (icon) { if (expanded) { icon.classList.add('ede-icon-rotated'); } else { icon.classList.remove('ede-icon-rotated'); } }
             });
         }

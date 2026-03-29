@@ -358,13 +358,14 @@ func TestCTEnrichment_SkipsAlreadyEnriched(t *testing.T) {
 func TestCTEnrichment_MonthlyReset(t *testing.T) {
         budgetDB := newMockBudgetDB()
 
-        lastMonth := time.Now().AddDate(0, -1, 0).Format("2006-01")
+        now := time.Now()
+        lastMonth := time.Date(now.Year(), now.Month()-1, 1, 0, 0, 0, 0, time.UTC).Format("2006-01")
         budgetDB.budgets[lastMonth] = dbq.GetSTBudgetRow{
                 MonthKey:  lastMonth,
                 CallsUsed: int32(stMonthlyBudget),
         }
 
-        currentMonth := time.Now().Format("2006-01")
+        currentMonth := now.Format("2006-01")
         _, err := budgetDB.GetSTBudget(context.Background(), currentMonth)
         if err == nil {
                 t.Error("expected no budget for current month (fresh start)")

@@ -775,7 +775,7 @@
 
             const statusSpans = overlay.querySelectorAll('.loading-status span');
             if (statusSpans.length > 0) {
-                var idx = 0;
+                let idx = 0;
                 statusSpans[0].classList.add('active');
                 setInterval(function() {
                     statusSpans[idx].classList.remove('active');

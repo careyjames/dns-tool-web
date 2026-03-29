@@ -261,7 +261,7 @@ func TestCovertExposureLines_Exposed_B13(t *testing.T) {
 }
 
 func TestCovertSummaryLines_AllHardened_B13(t *testing.T) {
-        lines := covertSummaryLines(0, 0, "Good luck.", "#aaa", "#bbb", "#ccc", "#ddd", false)
+        lines := covertSummaryLines(covertSummaryParams{vulnerable: 0, findingCount: 0, tagline: "Good luck.", locked: "#aaa", dimLocked: "#bbb", sRed: "#ccc", alt: "#ddd"})
         if len(lines) != 2 {
                 t.Fatalf("expected 2 lines, got %d", len(lines))
         }
@@ -271,7 +271,7 @@ func TestCovertSummaryLines_AllHardened_B13(t *testing.T) {
 }
 
 func TestCovertSummaryLines_SecretsLeaking_B13(t *testing.T) {
-        lines := covertSummaryLines(0, 3, "", "#aaa", "#bbb", "#ccc", "#ddd", false)
+        lines := covertSummaryLines(covertSummaryParams{vulnerable: 0, findingCount: 3, tagline: "", locked: "#aaa", dimLocked: "#bbb", sRed: "#ccc", alt: "#ddd"})
         if len(lines) != 2 {
                 t.Fatalf("expected 2 lines, got %d", len(lines))
         }
@@ -281,7 +281,7 @@ func TestCovertSummaryLines_SecretsLeaking_B13(t *testing.T) {
 }
 
 func TestCovertSummaryLines_Vulnerable_B13(t *testing.T) {
-        lines := covertSummaryLines(5, 0, "Door's open.", "#aaa", "#bbb", "#ccc", "#ddd", false)
+        lines := covertSummaryLines(covertSummaryParams{vulnerable: 5, findingCount: 0, tagline: "Door's open.", locked: "#aaa", dimLocked: "#bbb", sRed: "#ccc", alt: "#ddd"})
         if len(lines) < 1 {
                 t.Fatal("expected at least 1 line")
         }
@@ -291,7 +291,7 @@ func TestCovertSummaryLines_Vulnerable_B13(t *testing.T) {
 }
 
 func TestCovertSummaryLines_FewVectors_B13(t *testing.T) {
-        lines := covertSummaryLines(1, 1, "", "#aaa", "#bbb", "#ccc", "#ddd", false)
+        lines := covertSummaryLines(covertSummaryParams{vulnerable: 1, findingCount: 1, tagline: "", locked: "#aaa", dimLocked: "#bbb", sRed: "#ccc", alt: "#ddd"})
         if len(lines) < 1 {
                 t.Fatal("expected at least 1 line")
         }

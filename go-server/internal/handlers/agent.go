@@ -9,6 +9,7 @@ import (
         "html/template"
         "log/slog"
         "net/http"
+        "net/url"
         "strings"
         "time"
 
@@ -17,6 +18,16 @@ import (
         "dnstool/go-server/internal/dnsclient"
 
         "github.com/gin-gonic/gin"
+)
+
+const (
+        agentContentTypeHTML  = "text/html; charset=utf-8"
+        agentFmtWayback       = "%s/agent/wayback?domain=%s"
+        agentFmtAnalyzeSrc    = "%s/analyze?domain=%s&src=agent"
+        agentFmtAnalyze       = "%s/analyze?domain=%s"
+        agentErrMissingDomain = "missing domain parameter"
+        agentErrInvalidDomain = "invalid domain"
+        agentErrNotFound      = "not found"
 )
 
 type AgentSaveFn func(ctx context.Context, domain, asciiDomain string, results map[string]any) int32
@@ -87,7 +98,7 @@ func (h *AgentHandler) AgentSearch(c *gin.Context) {
         domain := extractAgentQuery(c)
         if domain == "" {
                 base := h.Config.BaseURL
-                c.Data(http.StatusOK, "text/html; charset=utf-8",
+                c.Data(http.StatusOK, agentContentTypeHTML,
                         []byte(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>DNS Tool — Agent Search</title>`+
                                 `<link rel="search" type="application/opensearchdescription+xml" title="DNS Tool" href="`+base+`/agent/opensearch.xml">`+
                                 `</head><body><h1>DNS Tool — Agent Search</h1>`+
@@ -103,7 +114,7 @@ func (h *AgentHandler) AgentSearch(c *gin.Context) {
         }
 
         if !dnsclient.ValidateDomain(domain) && !analyzer.IsWeb3Input(domain) {
-                c.Data(http.StatusBadRequest, "text/html; charset=utf-8",
+                c.Data(http.StatusBadRequest, agentContentTypeHTML,
                         []byte(fmt.Sprintf(`<!DOCTYPE html><html><head><title>DNS Tool Agent — Error</title></head><body><h1>Error</h1><p>Invalid domain: %s</p></body></html>`,
                                 template.HTMLEscapeString(domain))))
                 return
@@ -114,7 +125,9 @@ func (h *AgentHandler) AgentSearch(c *gin.Context) {
                 asciiDomain = domain
         }
 
-        results := h.Analyzer.AnalyzeDomain(c.Request.Context(), asciiDomain, nil, analyzer.AnalysisOptions{})
+        analysisCtx, analysisCancel := context.WithTimeout(context.Background(), 90*time.Second)
+        defer analysisCancel()
+        results := h.Analyzer.AnalyzeDomain(analysisCtx, asciiDomain, nil, analyzer.AnalysisOptions{})
 
         analysisSuccess := true
         if s, ok := results["analysis_success"].(bool); ok {
@@ -126,7 +139,7 @@ func (h *AgentHandler) AgentSearch(c *gin.Context) {
                 if e, ok := results["error"].(string); ok {
                         errMsg = e
                 }
-                c.Data(http.StatusOK, "text/html; charset=utf-8",
+                c.Data(http.StatusOK, agentContentTypeHTML,
                         []byte(fmt.Sprintf(`<!DOCTYPE html><html><head><title>DNS Tool Agent — %s</title></head><body><h1>DNS Tool — %s</h1><p>%s</p></body></html>`,
                                 template.HTMLEscapeString(asciiDomain),
                                 template.HTMLEscapeString(asciiDomain),
@@ -146,7 +159,7 @@ func (h *AgentHandler) AgentSearch(c *gin.Context) {
         }
 
         html := h.buildAgentHTML(asciiDomain, results, analysisID)
-        c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
+        c.Data(http.StatusOK, agentContentTypeHTML, []byte(html))
 }
 
 func (h *AgentHandler) AgentAPI(c *gin.Context) {
@@ -166,7 +179,9 @@ func (h *AgentHandler) AgentAPI(c *gin.Context) {
                 asciiDomain = domain
         }
 
-        results := h.Analyzer.AnalyzeDomain(c.Request.Context(), asciiDomain, nil, analyzer.AnalysisOptions{})
+        apiCtx, apiCancel := context.WithTimeout(context.Background(), 90*time.Second)
+        defer apiCancel()
+        results := h.Analyzer.AnalyzeDomain(apiCtx, asciiDomain, nil, analyzer.AnalysisOptions{})
 
         analysisSuccess := true
         if s, ok := results["analysis_success"].(bool); ok {
@@ -235,49 +250,57 @@ func safeFloat64(m map[string]any, key string) float64 {
         return 0
 }
 
+func extractVerdict(m map[string]any, fallback string) string {
+        if m == nil {
+                return agentErrNotFound
+        }
+        v := safeString(m, "status")
+        if v == "" {
+                v = safeString(m, "verdict")
+        }
+        if v == "" {
+                return fallback
+        }
+        return v
+}
+
+func extractDNSSECStatus(results map[string]any) string {
+        dnssec := safeMap(results, "dnssec_analysis")
+        if dnssec == nil {
+                return "unknown"
+        }
+        if safeBool(dnssec, "signed") {
+                return "signed"
+        }
+        return "unsigned"
+}
+
+func extractPosture(results map[string]any) (int, string, string) {
+        posture := safeMap(results, "posture")
+        if posture == nil {
+                return 0, "N/A", ""
+        }
+        return int(safeFloat64(posture, "score")), safeString(posture, "grade"), safeString(posture, "label")
+}
+
 func (h *AgentHandler) buildAgentJSON(domain string, results map[string]any) gin.H {
         spf := safeMap(results, "spf_analysis")
         dmarc := safeMap(results, "dmarc_analysis")
         dkim := safeMap(results, "dkim_analysis")
         subdomains := safeMap(results, "subdomain_discovery")
 
-        spfVerdict := "not found"
-        if spf != nil {
-                spfVerdict = safeString(spf, "status")
-                if spfVerdict == "" {
-                        spfVerdict = safeString(spf, "verdict")
-                }
-                if spfVerdict == "" {
-                        spfVerdict = "missing"
-                }
-        }
+        spfVerdict := extractVerdict(spf, "missing")
 
-        dmarcVerdict := "not found"
+        dmarcVerdict := extractVerdict(dmarc, "missing")
         dmarcPolicy := "none"
         if dmarc != nil {
-                dmarcVerdict = safeString(dmarc, "status")
-                if dmarcVerdict == "" {
-                        dmarcVerdict = safeString(dmarc, "verdict")
-                }
-                if dmarcVerdict == "" {
-                        dmarcVerdict = "missing"
-                }
                 dmarcPolicy = safeString(dmarc, "policy")
                 if dmarcPolicy == "" {
                         dmarcPolicy = "none"
                 }
         }
 
-        dkimVerdict := "not found"
-        if dkim != nil {
-                dkimVerdict = safeString(dkim, "status")
-                if dkimVerdict == "" {
-                        dkimVerdict = safeString(dkim, "verdict")
-                }
-                if dkimVerdict == "" {
-                        dkimVerdict = "not detected"
-                }
-        }
+        dkimVerdict := extractVerdict(dkim, "not detected")
 
         subdomainCount := 0
         certCount := 0
@@ -290,47 +313,28 @@ func (h *AgentHandler) buildAgentJSON(domain string, results map[string]any) gin
 
         riskLevel := safeString(results, "risk_level")
         domainExists := safeBool(results, "domain_exists")
+        dnssecStatus := extractDNSSECStatus(results)
 
-        dnssec := safeMap(results, "dnssec_analysis")
-        dnssecStatus := "unknown"
-        if dnssec != nil {
-                if safeBool(dnssec, "signed") {
-                        dnssecStatus = "signed"
-                } else {
-                        dnssecStatus = "unsigned"
-                }
-        }
-
-        mtaSTS := safeMap(results, "mta_sts_analysis")
         mtaSTSMode := "none"
-        if mtaSTS != nil {
+        if mtaSTS := safeMap(results, "mta_sts_analysis"); mtaSTS != nil {
                 mtaSTSMode = safeString(mtaSTS, "mode")
         }
 
-        bimi := safeMap(results, "bimi_analysis")
         bimiPresent := false
-        if bimi != nil {
+        if bimi := safeMap(results, "bimi_analysis"); bimi != nil {
                 bimiPresent = safeBool(bimi, "has_bimi")
         }
 
-        caa := safeMap(results, "caa_analysis")
         caaPresent := false
-        if caa != nil {
+        if caa := safeMap(results, "caa_analysis"); caa != nil {
                 caaPresent = safeBool(caa, "has_caa")
         }
 
-        postureScore := 0
-        postureGrade := "N/A"
-        postureLabel := ""
-        if posture := safeMap(results, "posture"); posture != nil {
-                postureScore = int(safeFloat64(posture, "score"))
-                postureGrade = safeString(posture, "grade")
-                postureLabel = safeString(posture, "label")
-        }
+        postureScore, postureGrade, postureLabel := extractPosture(results)
 
         base := h.Config.BaseURL
-        analyzeURL := fmt.Sprintf("%s/analyze?domain=%s", base, domain)
-        waybackURL := fmt.Sprintf("%s/agent/wayback?domain=%s", base, domain)
+        analyzeURL := fmt.Sprintf(agentFmtAnalyze, base, domain)
+        waybackURL := fmt.Sprintf(agentFmtWayback, base, domain)
 
         return gin.H{
                 "tool":       "DNS Tool",
@@ -347,11 +351,11 @@ func (h *AgentHandler) buildAgentJSON(domain string, results map[string]any) gin
                 },
                 "links": gin.H{
                         "report":          analyzeURL,
-                        "report_page":     fmt.Sprintf("%s/analyze?domain=%s&src=agent", base, domain),
+                        "report_page":     fmt.Sprintf(agentFmtAnalyzeSrc, base, domain),
                         "snapshot":        fmt.Sprintf("%s/snapshot/%s", base, domain),
                         "topology":        fmt.Sprintf("%s/topology?domain=%s", base, domain),
                         "wayback_archive": waybackURL,
-                        "wayback_page":    fmt.Sprintf("%s/agent/wayback?domain=%s", base, domain),
+                        "wayback_page":    fmt.Sprintf(agentFmtWayback, base, domain),
                         "api_json":        fmt.Sprintf("%s/agent/api?q=%s", base, domain),
                         "csv_export":      fmt.Sprintf("%s/export/subdomains?domain=%s&format=csv", base, domain),
                         "sources":         fmt.Sprintf("%s/sources", base),
@@ -401,64 +405,96 @@ func esc(s string) string {
         return template.HTMLEscapeString(s)
 }
 
-func (h *AgentHandler) buildAgentHTML(domain string, results map[string]any, analysisID int32) string {
-        j := h.buildAgentJSON(domain, results)
+func safeInternalURL(base, path string, params map[string]string) string {
+        u, err := url.Parse(base)
+        if err != nil {
+                u = &url.URL{Path: "/"}
+        }
+        u.Path = path
+        q := u.Query()
+        for k, v := range params {
+                q.Set(k, v)
+        }
+        u.RawQuery = q.Encode()
+        return u.String()
+}
 
-        riskLevel := "Unknown"
-        postureScore := 0
-        postureGrade := "N/A"
-        postureLabel := ""
-        if summary, ok := j["summary"].(gin.H); ok {
-                if rl, ok := summary["risk_level"].(string); ok && rl != "" {
-                        riskLevel = rl
-                }
-                if ps, ok := summary["posture_score"].(int); ok {
-                        postureScore = ps
-                }
-                if pg, ok := summary["posture_grade"].(string); ok {
-                        postureGrade = pg
-                }
-                if pl, ok := summary["posture_label"].(string); ok {
-                        postureLabel = pl
+type agentHTMLData struct {
+        riskLevel, postureGrade, postureLabel   string
+        postureScore                            int
+        spfStatus, dkimStatus, dmarcStatus      string
+        dmarcPolicy, dnssecStatus, mtaSTSMode   string
+        bimiPresent, caaPresent                 bool
+        subCount, certCountVal, cnameCountVal   int
+}
+
+func extractSummaryData(d *agentHTMLData, j gin.H) {
+        summary, ok := j["summary"].(gin.H)
+        if !ok {
+                return
+        }
+        if rl, ok := summary["risk_level"].(string); ok && rl != "" {
+                d.riskLevel = rl
+        }
+        d.postureScore, _ = summary["posture_score"].(int)
+        if pg, ok := summary["posture_grade"].(string); ok {
+                d.postureGrade = pg
+        }
+        if pl, ok := summary["posture_label"].(string); ok {
+                d.postureLabel = pl
+        }
+}
+
+func extractEmailAuthData(d *agentHTMLData, j gin.H) {
+        emailAuth, ok := j["email_authentication"].(gin.H)
+        if !ok {
+                return
+        }
+        d.spfStatus = extractNestedStatus(emailAuth, "spf")
+        d.dkimStatus = extractNestedStatus(emailAuth, "dkim")
+        d.dmarcStatus = extractNestedStatus(emailAuth, "dmarc")
+        if dm, ok := emailAuth["dmarc"].(gin.H); ok {
+                if p, ok := dm["policy"].(string); ok && p != "" {
+                        d.dmarcPolicy = p
                 }
         }
-
-        emailAuth := j["email_authentication"].(gin.H)
-        spfStatus := extractNestedStatus(emailAuth, "spf")
-        dkimStatus := extractNestedStatus(emailAuth, "dkim")
-        dmarcStatus := extractNestedStatus(emailAuth, "dmarc")
-        dmarcPolicy := "none"
-        if d, ok := emailAuth["dmarc"].(gin.H); ok {
-                if p, ok := d["policy"].(string); ok && p != "" {
-                        dmarcPolicy = p
-                }
-        }
-        bimiPresent := false
         if b, ok := emailAuth["bimi"].(gin.H); ok {
-                bimiPresent, _ = b["present"].(bool)
+                d.bimiPresent, _ = b["present"].(bool)
         }
+}
 
-        transport := j["transport_security"].(gin.H)
-        dnssecStatus := extractNestedStatus(transport, "dnssec")
-        mtaSTSMode := "none"
+func extractTransportData(d *agentHTMLData, j gin.H) {
+        transport, ok := j["transport_security"].(gin.H)
+        if !ok {
+                return
+        }
+        d.dnssecStatus = extractNestedStatus(transport, "dnssec")
         if m, ok := transport["mta_sts"].(gin.H); ok {
                 if mode, ok := m["mode"].(string); ok && mode != "" {
-                        mtaSTSMode = mode
+                        d.mtaSTSMode = mode
                 }
         }
-        caaPresent := false
         if ca, ok := transport["caa"].(gin.H); ok {
-                caaPresent, _ = ca["present"].(bool)
+                d.caaPresent, _ = ca["present"].(bool)
         }
+}
 
-        subCount := 0
-        certCountVal := 0
-        cnameCountVal := 0
+func extractHTMLData(j gin.H) agentHTMLData {
+        d := agentHTMLData{riskLevel: "Unknown", postureGrade: "N/A", dmarcPolicy: "none", mtaSTSMode: "none"}
+        extractSummaryData(&d, j)
+        extractEmailAuthData(&d, j)
+        extractTransportData(&d, j)
         if sd, ok := j["subdomain_discovery"].(gin.H); ok {
-                subCount, _ = sd["subdomains_found"].(int)
-                certCountVal, _ = sd["certificates"].(int)
-                cnameCountVal, _ = sd["cnames"].(int)
+                d.subCount, _ = sd["subdomains_found"].(int)
+                d.certCountVal, _ = sd["certificates"].(int)
+                d.cnameCountVal, _ = sd["cnames"].(int)
         }
+        return d
+}
+
+func (h *AgentHandler) buildAgentHTML(domain string, results map[string]any, analysisID int32) string {
+        j := h.buildAgentJSON(domain, results)
+        d := extractHTMLData(j)
 
         links := j["links"].(gin.H)
         badges := j["badges"].(gin.H)
@@ -469,14 +505,14 @@ func (h *AgentHandler) buildAgentHTML(domain string, results map[string]any, ana
         snapshotURL := esc(links["snapshot"].(string))
         topologyURL := esc(links["topology"].(string))
         apiURL := esc(links["api_json"].(string))
-        reportPageURL := esc(fmt.Sprintf("%s/analyze?domain=%s&src=agent", base, domain))
+        reportPageURL := esc(fmt.Sprintf(agentFmtAnalyzeSrc, base, domain))
         badgeDetailed := esc(badges["detailed_svg"].(string))
         badgeCovert := esc(badges["covert_svg"].(string))
         badgeViewDetailed := esc(fmt.Sprintf("%s/agent/badge-view?domain=%s&style=detailed", base, domain))
         badgeViewCovert := esc(fmt.Sprintf("%s/agent/badge-view?domain=%s&style=covert", base, domain))
         csvExportURL := esc(fmt.Sprintf("%s/export/subdomains?domain=%s&format=csv", base, domain))
         sourcesURL := esc(fmt.Sprintf("%s/sources", base))
-        waybackViewURL := esc(fmt.Sprintf("%s/agent/wayback?domain=%s", base, domain))
+        waybackViewURL := esc(fmt.Sprintf(agentFmtWayback, base, domain))
         confidenceURL := esc(fmt.Sprintf("%s/confidence", base))
 
         var checksumURL, remediationURL, covertReportURL, executiveReportURL string
@@ -486,10 +522,10 @@ func (h *AgentHandler) buildAgentHTML(domain string, results map[string]any, ana
                 covertReportURL = esc(fmt.Sprintf("%s/analysis/%d/view/C", base, analysisID))
                 executiveReportURL = esc(fmt.Sprintf("%s/analysis/%d/executive", base, analysisID))
         } else {
-                checksumURL = esc(fmt.Sprintf("%s/analyze?domain=%s&src=agent", base, domain))
+                checksumURL = esc(fmt.Sprintf(agentFmtAnalyzeSrc, base, domain))
                 remediationURL = esc(fmt.Sprintf("%s/remediation?domain=%s", base, domain))
-                covertReportURL = esc(fmt.Sprintf("%s/analyze?domain=%s&src=agent", base, domain))
-                executiveReportURL = esc(fmt.Sprintf("%s/analyze?domain=%s&src=agent", base, domain))
+                covertReportURL = esc(fmt.Sprintf(agentFmtAnalyzeSrc, base, domain))
+                executiveReportURL = esc(fmt.Sprintf(agentFmtAnalyzeSrc, base, domain))
         }
 
         now := time.Now().UTC()
@@ -502,7 +538,7 @@ func (h *AgentHandler) buildAgentHTML(domain string, results map[string]any, ana
 <head>
   <meta charset="UTF-8">
   <title>DNS Tool — ` + ed + ` — DNS Security Intelligence Report</title>
-  <meta name="description" content="DNS Security Intelligence Report for ` + ed + ` — Risk: ` + esc(riskLevel) + `, Posture: ` + fmt.Sprintf("%d", postureScore) + `/100 (` + esc(postureGrade) + `)">
+  <meta name="description" content="DNS Security Intelligence Report for ` + ed + ` — Risk: ` + esc(d.riskLevel) + `, Posture: ` + fmt.Sprintf("%d", d.postureScore) + `/100 (` + esc(d.postureGrade) + `)">
   <meta name="generator" content="DNS Tool ` + esc(h.Config.AppVersion) + `">
   <meta name="robots" content="noindex, noarchive">
   <link rel="search" type="application/opensearchdescription+xml" title="DNS Tool" href="` + esc(base) + `/agent/opensearch.xml">
@@ -533,7 +569,7 @@ func (h *AgentHandler) buildAgentHTML(domain string, results map[string]any, ana
 
   <!-- Open Graph (social sharing, DEVONthink) -->
   <meta property="og:title" content="DNS Tool — ` + ed + `">
-  <meta property="og:description" content="Risk: ` + esc(riskLevel) + ` | Posture: ` + fmt.Sprintf("%d", postureScore) + `/100 (` + esc(postureGrade) + `) | ` + fmt.Sprintf("%d", subCount) + ` subdomains">
+  <meta property="og:description" content="Risk: ` + esc(d.riskLevel) + ` | Posture: ` + fmt.Sprintf("%d", d.postureScore) + `/100 (` + esc(d.postureGrade) + `) | ` + fmt.Sprintf("%d", d.subCount) + ` subdomains">
   <meta property="og:type" content="article">
   <meta property="og:url" content="` + reportURL + `">
   <meta property="og:image" content="` + badgeDetailed + `">
@@ -550,10 +586,10 @@ func (h *AgentHandler) buildAgentHTML(domain string, results map[string]any, ana
 <h2>Summary</h2>
 <table>
   <tr><th>Metric</th><th>Value</th></tr>
-  <tr><td>Risk Level</td><td>` + esc(riskLevel) + `</td></tr>
-  <tr><td>Posture Score</td><td>` + fmt.Sprintf("%d/100", postureScore) + `</td></tr>
-  <tr><td>Posture Grade</td><td>` + esc(postureGrade) + `</td></tr>
-  <tr><td>Posture Label</td><td>` + esc(postureLabel) + `</td></tr>
+  <tr><td>Risk Level</td><td>` + esc(d.riskLevel) + `</td></tr>
+  <tr><td>Posture Score</td><td>` + fmt.Sprintf("%d/100", d.postureScore) + `</td></tr>
+  <tr><td>Posture Grade</td><td>` + esc(d.postureGrade) + `</td></tr>
+  <tr><td>Posture Label</td><td>` + esc(d.postureLabel) + `</td></tr>
 </table>
 
 <h2>Reports &amp; Intelligence</h2>
@@ -580,26 +616,26 @@ func (h *AgentHandler) buildAgentHTML(domain string, results map[string]any, ana
 <h2>Email Authentication</h2>
 <table>
   <tr><th>Control</th><th>Status</th></tr>
-  <tr><td>SPF</td><td>` + esc(spfStatus) + `</td></tr>
-  <tr><td>DKIM</td><td>` + esc(dkimStatus) + `</td></tr>
-  <tr><td>DMARC</td><td>` + esc(dmarcStatus) + ` (policy: ` + esc(dmarcPolicy) + `)</td></tr>
-  <tr><td>BIMI</td><td>` + boolToPresence(bimiPresent) + `</td></tr>
+  <tr><td>SPF</td><td>` + esc(d.spfStatus) + `</td></tr>
+  <tr><td>DKIM</td><td>` + esc(d.dkimStatus) + `</td></tr>
+  <tr><td>DMARC</td><td>` + esc(d.dmarcStatus) + ` (policy: ` + esc(d.dmarcPolicy) + `)</td></tr>
+  <tr><td>BIMI</td><td>` + boolToPresence(d.bimiPresent) + `</td></tr>
 </table>
 
 <h2>Transport Security</h2>
 <table>
   <tr><th>Control</th><th>Status</th></tr>
-  <tr><td>DNSSEC</td><td>` + esc(dnssecStatus) + `</td></tr>
-  <tr><td>MTA-STS</td><td>` + esc(mtaSTSMode) + `</td></tr>
-  <tr><td>CAA</td><td>` + boolToPresence(caaPresent) + `</td></tr>
+  <tr><td>DNSSEC</td><td>` + esc(d.dnssecStatus) + `</td></tr>
+  <tr><td>MTA-STS</td><td>` + esc(d.mtaSTSMode) + `</td></tr>
+  <tr><td>CAA</td><td>` + boolToPresence(d.caaPresent) + `</td></tr>
 </table>
 
 <h2>Subdomain Discovery</h2>
 <table>
   <tr><th>Metric</th><th>Value</th></tr>
-  <tr><td>Subdomains Found</td><td>` + fmt.Sprintf("%d", subCount) + `</td></tr>
-  <tr><td>Unique Certificates</td><td>` + fmt.Sprintf("%d", certCountVal) + `</td></tr>
-  <tr><td>CNAME Records</td><td>` + fmt.Sprintf("%d", cnameCountVal) + `</td></tr>
+  <tr><td>Subdomains Found</td><td>` + fmt.Sprintf("%d", d.subCount) + `</td></tr>
+  <tr><td>Unique Certificates</td><td>` + fmt.Sprintf("%d", d.certCountVal) + `</td></tr>
+  <tr><td>CNAME Records</td><td>` + fmt.Sprintf("%d", d.cnameCountVal) + `</td></tr>
 </table>
 
 <h2>Provenance &amp; Citation</h2>
@@ -630,21 +666,17 @@ func boolToPresence(b bool) string {
         if b {
                 return "present"
         }
-        return "not found"
+        return agentErrNotFound
 }
 
 func (h *AgentHandler) BadgeView(c *gin.Context) {
-        domain := strings.TrimSpace(c.Query("q"))
+        domain := extractAgentQuery(c)
         if domain == "" {
-                domain = strings.TrimSpace(c.Query("domain"))
-        }
-        if domain == "" {
-                c.String(http.StatusBadRequest, "missing domain parameter")
+                c.String(http.StatusBadRequest, agentErrMissingDomain)
                 return
         }
-        domain = cleanAgentQuery(domain)
         if !dnsclient.ValidateDomain(domain) {
-                c.String(http.StatusBadRequest, "invalid domain")
+                c.String(http.StatusBadRequest, agentErrInvalidDomain)
                 return
         }
 
@@ -667,7 +699,7 @@ func (h *AgentHandler) BadgeView(c *gin.Context) {
                 badgeURL += "&style=" + style
         }
         eb := esc(badgeURL)
-        reportURL := esc(fmt.Sprintf("%s/analyze?domain=%s", base, domain))
+        reportURL := esc(fmt.Sprintf(agentFmtAnalyze, base, domain))
 
         styleName := style
         if style == "flat" {
@@ -717,21 +749,17 @@ func (h *AgentHandler) BadgeView(c *gin.Context) {
 </body>
 </html>`)
 
-        c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(sb.String()))
+        c.Data(http.StatusOK, agentContentTypeHTML, []byte(sb.String()))
 }
 
 func (h *AgentHandler) WaybackView(c *gin.Context) {
-        domain := strings.TrimSpace(c.Query("q"))
+        domain := extractAgentQuery(c)
         if domain == "" {
-                domain = strings.TrimSpace(c.Query("domain"))
-        }
-        if domain == "" {
-                c.String(http.StatusBadRequest, "missing domain parameter")
+                c.String(http.StatusBadRequest, agentErrMissingDomain)
                 return
         }
-        domain = cleanAgentQuery(domain)
         if !dnsclient.ValidateDomain(domain) {
-                c.String(http.StatusBadRequest, "invalid domain")
+                c.String(http.StatusBadRequest, agentErrInvalidDomain)
                 return
         }
 
@@ -746,24 +774,20 @@ func (h *AgentHandler) WaybackView(c *gin.Context) {
                 }
         }
 
-        c.Redirect(http.StatusFound, fmt.Sprintf("%s/analyze?domain=%s", base, domain))
+        c.Redirect(http.StatusFound, safeInternalURL(base, "/analyze", map[string]string{"domain": domain}))
 }
 
 func (h *AgentHandler) ReportView(c *gin.Context) {
-        domain := strings.TrimSpace(c.Query("q"))
+        domain := extractAgentQuery(c)
         if domain == "" {
-                domain = strings.TrimSpace(c.Query("domain"))
-        }
-        if domain == "" {
-                c.String(http.StatusBadRequest, "missing domain parameter")
+                c.String(http.StatusBadRequest, agentErrMissingDomain)
                 return
         }
-        domain = cleanAgentQuery(domain)
         if !dnsclient.ValidateDomain(domain) {
-                c.String(http.StatusBadRequest, "invalid domain")
+                c.String(http.StatusBadRequest, agentErrInvalidDomain)
                 return
         }
-        c.Redirect(http.StatusMovedPermanently, "/analyze?domain="+domain)
+        c.Redirect(http.StatusMovedPermanently, safeInternalURL("", "/analyze", map[string]string{"domain": domain}))
 }
 
 func extractRecordStrings(results map[string]any, section string) []string {

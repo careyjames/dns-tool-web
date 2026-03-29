@@ -215,8 +215,8 @@
     {{template "footer" .}}
     <script nonce="{{.CspNonce}}">
     function toggleLayer(btn) {
-        var id = btn.getAttribute('data-target');
-        var el = document.getElementById(id);
+        let id = btn.dataset.target;
+        let el = document.getElementById(id);
         if (el.classList.contains('layer-hidden')) {
             el.classList.remove('layer-hidden');
             btn.classList.remove('off');
@@ -243,8 +243,8 @@
     }
     function soloMode() {
         hideAll();
-        var btn = document.querySelector('[data-target="layer-L0"]');
-        var btn4 = document.querySelector('[data-target="layer-L4"]');
+        let btn = document.querySelector('[data-target="layer-L0"]');
+        let btn4 = document.querySelector('[data-target="layer-L4"]');
         document.getElementById('layer-L0').classList.remove('layer-hidden');
         document.getElementById('layer-L4').classList.remove('layer-hidden');
         btn.classList.remove('off');

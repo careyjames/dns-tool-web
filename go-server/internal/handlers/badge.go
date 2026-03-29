@@ -580,38 +580,45 @@ func covertPrefixColor(prefix, dimLocked, sRed, alt string) string {
         }
 }
 
-func covertSummaryLines(vulnerable, findingCount int, tagline, locked, dimLocked, sRed, alt string, web3Detected bool) []covertLine {
+type covertSummaryParams struct {
+        vulnerable, findingCount int
+        tagline                  string
+        locked, dimLocked        string
+        sRed, alt                string
+}
+
+func covertSummaryLines(p covertSummaryParams) []covertLine {
         cl := func(pfx, txt, c string) covertLine {
                 return covertLine{prefix: pfx, text: txt, color: c}
         }
         checkCount := 10
-        if vulnerable == 0 && findingCount == 0 {
+        if p.vulnerable == 0 && p.findingCount == 0 {
                 return []covertLine{
-                        cl("[!]", fmt.Sprintf("All %d checks configured — target is hardened", checkCount), locked),
-                        cl("[!]", tagline, dimLocked),
+                        cl("[!]", fmt.Sprintf("All %d checks configured — target is hardened", checkCount), p.locked),
+                        cl("[!]", p.tagline, p.dimLocked),
                 }
         }
-        if vulnerable == 0 {
+        if p.vulnerable == 0 {
                 return []covertLine{
-                        cl("[!]", "Infrastructure hardened — but secrets are leaking", sRed),
-                        cl("[!]", "Rotate exposed credentials immediately.", alt),
+                        cl("[!]", "Infrastructure hardened — but secrets are leaking", p.sRed),
+                        cl("[!]", "Rotate exposed credentials immediately.", p.alt),
                 }
         }
-        vectors := vulnerable + findingCount
+        vectors := p.vulnerable + p.findingCount
         var lines []covertLine
-        if vectors <= 2 && vulnerable <= 1 {
-                lines = append(lines, cl("[!]", fmt.Sprintf("%d attack vector%s available — mostly locked down", vectors, pluralS(vectors)), locked))
-                if findingCount > 0 {
-                        lines = append(lines, cl("[!]", "Rotate exposed credentials.", alt))
-                } else if tagline != "" {
-                        lines = append(lines, cl("[!]", tagline, dimLocked))
+        if vectors <= 2 && p.vulnerable <= 1 {
+                lines = append(lines, cl("[!]", fmt.Sprintf("%d attack vector%s available — mostly locked down", vectors, pluralS(vectors)), p.locked))
+                if p.findingCount > 0 {
+                        lines = append(lines, cl("[!]", "Rotate exposed credentials.", p.alt))
+                } else if p.tagline != "" {
+                        lines = append(lines, cl("[!]", p.tagline, p.dimLocked))
                 }
         } else {
-                lines = append(lines, cl("[!]", fmt.Sprintf("%d of %d attack vectors available", vectors, checkCount), sRed))
-                if findingCount > 0 {
-                        lines = append(lines, cl("[!]", "Leaked secrets make infrastructure gaps worse.", alt))
-                } else if tagline != "" {
-                        lines = append(lines, cl("[!]", tagline, alt))
+                lines = append(lines, cl("[!]", fmt.Sprintf("%d of %d attack vectors available", vectors, checkCount), p.sRed))
+                if p.findingCount > 0 {
+                        lines = append(lines, cl("[!]", "Leaked secrets make infrastructure gaps worse.", p.alt))
+                } else if p.tagline != "" {
+                        lines = append(lines, cl("[!]", p.tagline, p.alt))
                 }
         }
         return lines
@@ -795,8 +802,11 @@ func badgeSVGCovert(domain string, results map[string]any, scanTime time.Time, s
 
         lines = append(lines, cl("", "", ""))
 
-        web3Detected := web3Status != ""
-        lines = append(lines, covertSummaryLines(vulnerable, exposure.findingCount, tagline, locked, dimLocked, sRed, alt, web3Detected)...)
+        lines = append(lines, covertSummaryLines(covertSummaryParams{
+                vulnerable: vulnerable, findingCount: exposure.findingCount,
+                tagline: tagline, locked: locked, dimLocked: dimLocked,
+                sRed: sRed, alt: alt,
+        })...)
 
         lines = append(lines, cl("", "", ""))
         hashDisplay := postureHash

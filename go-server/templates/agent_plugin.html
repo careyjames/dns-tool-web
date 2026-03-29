@@ -332,12 +332,12 @@
                 <h2 class="h4 mt-5 mb-3">Plugin Source Code</h2>
                 <p class="text-muted">Both formats contain the same configuration. View the source here, or use the download buttons above.</p>
 
-                <div class="format-tabs">
-                    <div class="format-tab active" onclick="switchTab('plist')">plist (native)</div>
-                    <div class="format-tab" onclick="switchTab('json')">JSON</div>
+                <div class="format-tabs" role="tablist">
+                    <button type="button" class="format-tab active" role="tab" tabindex="0" id="tab-plist" aria-selected="true" aria-controls="panel-plist" onclick="switchTab('plist')">plist (native)</button>
+                    <button type="button" class="format-tab" role="tab" tabindex="-1" id="tab-json" aria-selected="false" aria-controls="panel-json" onclick="switchTab('json')">JSON</button>
                 </div>
 
-                <div id="panel-plist" class="format-panel active">
+                <div id="panel-plist" class="format-panel active" role="tabpanel" aria-labelledby="tab-plist">
                     <div class="plugin-code-block">
                         <button class="copy-btn" onclick="copyPlist()">Copy</button>
 <span class="xml-doctype">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
@@ -412,7 +412,7 @@
 <span class="xml-tag">&lt;/plist&gt;</span></div>
                 </div>
 
-                <div id="panel-json" class="format-panel">
+                <div id="panel-json" class="format-panel" role="tabpanel" aria-labelledby="tab-json">
                     <div class="plugin-code-block">
                         <button class="copy-btn" onclick="copyJSON()">Copy</button>
 {
@@ -529,15 +529,20 @@
     {{template "scripts" .}}
     <script nonce="{{.CspNonce}}">
     function switchTab(fmt) {
-        document.querySelectorAll('.format-tab').forEach(function(t) { t.classList.remove('active'); });
+        document.querySelectorAll('.format-tab').forEach(function(t) {
+            t.classList.remove('active');
+            t.setAttribute('aria-selected', 'false');
+            t.setAttribute('tabindex', '-1');
+        });
         document.querySelectorAll('.format-panel').forEach(function(p) { p.classList.remove('active'); });
-        if (fmt === 'json') {
-            document.querySelectorAll('.format-tab')[1].classList.add('active');
-            document.getElementById('panel-json').classList.add('active');
-        } else {
-            document.querySelectorAll('.format-tab')[0].classList.add('active');
-            document.getElementById('panel-plist').classList.add('active');
+        var activeTab = document.getElementById('tab-' + fmt);
+        var activePanel = document.getElementById('panel-' + fmt);
+        if (activeTab) {
+            activeTab.classList.add('active');
+            activeTab.setAttribute('aria-selected', 'true');
+            activeTab.setAttribute('tabindex', '0');
         }
+        if (activePanel) { activePanel.classList.add('active'); }
     }
     function flashCopyBtn(btn) {
         btn.textContent = 'Copied';

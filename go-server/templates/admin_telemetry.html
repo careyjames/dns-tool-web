@@ -56,7 +56,7 @@
                                         <td class="u-gantt-col">
                                             <div class="gantt-bar" data-analysis-id="{{.AnalysisID}}" data-total-ms="{{.TotalDurationMs}}">
                                                 <div class="progress u-gantt-progress">
-                                                    <div class="progress-bar u-gantt-bar-fill" role="progressbar" aria-valuenow="{{.TotalDurationMs}}" aria-valuemin="0" aria-valuemax="{{.TotalDurationMs}}"></div>
+                                                    <progress class="progress-bar u-gantt-bar-fill" value="{{.TotalDurationMs}}" max="{{.TotalDurationMs}}"></progress>
                                                 </div>
                                                 <div class="d-flex justify-content-between mt-0">
                                                     <span class="u-text-075 text-muted">0s</span>
@@ -180,38 +180,38 @@
 
     <script nonce="{{.CspNonce}}">
     (function() {
-        var NS = 'http://www.w3.org/2000/svg';
+        let NS = 'http://www.w3.org/2000/svg';
 
         function buildVerifyDOM(el, verified, aid, data) {
             while (el.firstChild) el.removeChild(el.firstChild);
             el.classList.remove('d-none', 'alert-success', 'alert-danger');
             if (verified) {
                 el.classList.add('alert-success');
-                var strong = document.createElement('strong');
+                let strong = document.createElement('strong');
                 strong.textContent = 'Integrity Verified';
                 el.appendChild(strong);
                 el.appendChild(document.createTextNode(' \u2014 Analysis #' + aid +
                     ' SHA-3-512 hash matches. ' + data.phase_count + ' phases, ' +
                     (data.total_duration_ms / 1000).toFixed(1) + 's total.'));
                 el.appendChild(document.createElement('br'));
-                var code = document.createElement('code');
+                let code = document.createElement('code');
                 code.className = 'small';
                 code.textContent = data.stored_hash;
                 el.appendChild(code);
             } else {
                 el.classList.add('alert-danger');
-                var s2 = document.createElement('strong');
+                let s2 = document.createElement('strong');
                 s2.textContent = 'INTEGRITY FAILURE';
                 el.appendChild(s2);
                 el.appendChild(document.createTextNode(' \u2014 Analysis #' + aid + ' hash mismatch!'));
                 el.appendChild(document.createElement('br'));
                 el.appendChild(document.createTextNode('Stored: '));
-                var c1 = document.createElement('code');
+                let c1 = document.createElement('code');
                 c1.textContent = data.stored_hash;
                 el.appendChild(c1);
                 el.appendChild(document.createElement('br'));
                 el.appendChild(document.createTextNode('Recomputed: '));
-                var c2 = document.createElement('code');
+                let c2 = document.createElement('code');
                 c2.textContent = data.recomputed_hash;
                 el.appendChild(c2);
             }
@@ -219,13 +219,13 @@
 
         document.querySelectorAll('.verify-btn').forEach(function(btn) {
             btn.addEventListener('click', function() {
-                var aid = btn.dataset.analysisId;
+                let aid = btn.dataset.analysisId;
                 btn.disabled = true;
                 btn.textContent = 'Verifying\u2026';
                 fetch('/api/telemetry/verify/' + aid)
                     .then(function(r) { return r.json(); })
                     .then(function(data) {
-                        var el = document.getElementById('verifyResult');
+                        let el = document.getElementById('verifyResult');
                         buildVerifyDOM(el, data.verified, aid, data);
                         btn.disabled = false;
                         btn.textContent = 'Verify';
@@ -238,13 +238,13 @@
             });
         });
 
-        var trendData = {{.TrendsJSON}};
+        let trendData = {{.TrendsJSON}};
         if (trendData && trendData.length > 0) {
             renderTrendChart(trendData);
         }
 
         function svgEl(tag, attrs) {
-            var el = document.createElementNS(NS, tag);
+            let el = document.createElementNS(NS, tag);
             if (attrs) {
                 Object.keys(attrs).forEach(function(k) {
                     el.setAttribute(k, attrs[k]);
@@ -254,18 +254,18 @@
         }
 
         function svgText(tag, attrs, text) {
-            var el = svgEl(tag, attrs);
+            let el = svgEl(tag, attrs);
             el.textContent = text;
             return el;
         }
 
         function renderTrendChart(data) {
-            var container = document.getElementById('trendChart');
+            let container = document.getElementById('trendChart');
             if (!container) return;
 
-            var groups = {};
-            var allDates = [];
-            var maxMs = 0;
+            let groups = {};
+            let allDates = [];
+            let maxMs = 0;
             data.forEach(function(row) {
                 if (!groups[row.phase_group]) groups[row.phase_group] = {};
                 groups[row.phase_group][row.trend_date] = row.avg_duration_ms;
@@ -275,47 +275,47 @@
             allDates.sort();
             if (maxMs === 0) maxMs = 1;
 
-            var colors = {
+            let colors = {
                 'dns_records': '#5c6bc0', 'email_auth': '#4fc3f7', 'dnssec_dane': '#81c784',
                 'ct_subdomains': '#78909c', 'smtp_transport': '#66bb6a', 'policy_records': '#ffb74d',
                 'registrar_infra': '#ce93d8', 'analysis_engine': '#e0e0e0', 'web3_analysis': '#d4a853'
             };
 
-            var w = Math.max(600, allDates.length * 80 + 100);
-            var h = 260;
-            var padL = 60, padR = 20, padT = 20, padB = 40;
-            var plotW = w - padL - padR;
-            var plotH = h - padT - padB;
+            let w = Math.max(600, allDates.length * 80 + 100);
+            let h = 260;
+            let padL = 60, padR = 20, padT = 20, padB = 40;
+            let plotW = w - padL - padR;
+            let plotH = h - padT - padB;
 
-            var svg = svgEl('svg', {viewBox: '0 0 ' + w + ' ' + h, width: w, height: h, style: 'font-family:system-ui,sans-serif'});
+            let svg = svgEl('svg', {viewBox: '0 0 ' + w + ' ' + h, width: w, height: h, style: 'font-family:system-ui,sans-serif'});
             svg.appendChild(svgEl('rect', {width: w, height: h, fill: '#0d1117', rx: 4}));
 
-            var yTicks = 5;
-            for (var yi = 0; yi <= yTicks; yi++) {
-                var yVal = Math.round(maxMs * yi / yTicks);
-                var yPos = padT + plotH - (plotH * yi / yTicks);
+            let yTicks = 5;
+            for (let yi = 0; yi <= yTicks; yi++) {
+                let yVal = Math.round(maxMs * yi / yTicks);
+                let yPos = padT + plotH - (plotH * yi / yTicks);
                 svg.appendChild(svgEl('line', {x1: padL, y1: yPos, x2: w - padR, y2: yPos, stroke: '#21262d', 'stroke-width': 1}));
                 svg.appendChild(svgText('text', {x: padL - 5, y: yPos + 3, 'text-anchor': 'end', fill: '#8b949e', 'font-size': 9}, (yVal / 1000).toFixed(1) + 's'));
             }
 
             allDates.forEach(function(d, i) {
-                var xPos = padL + (plotW * i / Math.max(allDates.length - 1, 1));
+                let xPos = padL + (plotW * i / Math.max(allDates.length - 1, 1));
                 svg.appendChild(svgText('text', {x: xPos, y: h - 8, 'text-anchor': 'middle', fill: '#8b949e', 'font-size': 9}, d.substring(5)));
             });
 
             Object.keys(groups).forEach(function(group) {
-                var pts = [];
+                let pts = [];
                 allDates.forEach(function(d, i) {
-                    var val = groups[group][d];
+                    let val = groups[group][d];
                     if (val !== undefined) {
-                        var x = padL + (plotW * i / Math.max(allDates.length - 1, 1));
-                        var y = padT + plotH - (plotH * val / maxMs);
+                        let x = padL + (plotW * i / Math.max(allDates.length - 1, 1));
+                        let y = padT + plotH - (plotH * val / maxMs);
                         pts.push({x: x, y: y});
                     }
                 });
                 if (pts.length > 1) {
-                    var col = colors[group] || '#8b949e';
-                    var pointStr = pts.map(function(p) { return p.x + ',' + p.y; }).join(' ');
+                    let col = colors[group] || '#8b949e';
+                    let pointStr = pts.map(function(p) { return p.x + ',' + p.y; }).join(' ');
                     svg.appendChild(svgEl('polyline', {points: pointStr, fill: 'none', stroke: col, 'stroke-width': 2, opacity: 0.8}));
                     pts.forEach(function(p) {
                         svg.appendChild(svgEl('circle', {cx: p.x, cy: p.y, r: 3, fill: col}));
@@ -323,12 +323,12 @@
                 }
             });
 
-            var legendY = padT + 5;
-            var legendIdx = 0;
+            let legendY = padT + 5;
+            let legendIdx = 0;
             Object.keys(colors).forEach(function(group) {
                 if (!groups[group]) return;
-                var lx = padL + 10;
-                var ly = legendY + legendIdx * 14;
+                let lx = padL + 10;
+                let ly = legendY + legendIdx * 14;
                 svg.appendChild(svgEl('rect', {x: lx, y: ly - 6, width: 10, height: 10, rx: 2, fill: colors[group], opacity: 0.8}));
                 svg.appendChild(svgText('text', {x: lx + 14, y: ly + 3, fill: '#e6edf3', 'font-size': 9}, group));
                 legendIdx++;

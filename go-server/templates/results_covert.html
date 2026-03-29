@@ -1603,7 +1603,7 @@
 
             const tooltipInstances = [];
             function initCovertTooltips() {
-                var tooltipTriggerList = Array.from(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+                const tooltipTriggerList = Array.from(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
                 for (const el of tooltipTriggerList) {
                     tooltipInstances.push(new bootstrap.Tooltip(el, { trigger: 'hover focus' }));
                 }

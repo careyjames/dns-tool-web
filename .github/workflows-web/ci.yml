@@ -20,13 +20,21 @@ jobs:
           go-version: '1.25'
 
       - name: Build OSS binary
-        run: go build -o dns-tool-server ./go-server/cmd/server
+        run: |
+          cd go-server
+          CGO_ENABLED=0 go build -ldflags "-s -w" -o ../dns-tool-server ./cmd/server
+        env:
+          CGO_ENABLED: '0'
 
       - name: Verify binary
-        run: ./dns-tool-server -version || true
+        run: |
+          ls -lh dns-tool-server
+          file dns-tool-server
 
       - name: Vet
-        run: go vet ./...
+        run: go vet ./go-server/...
+        env:
+          CGO_ENABLED: '0'
 
       - name: Test
         run: |

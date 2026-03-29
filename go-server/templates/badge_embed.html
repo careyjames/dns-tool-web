@@ -223,8 +223,8 @@
 
     {{template "scripts" .}}
     <script nonce="{{.CspNonce}}">
-    var _svgCheck = '{{icon "check"}}';
-    var _svgCopy = '{{icon "copy"}}';
+    let _svgCheck = '{{icon "check"}}';
+    let _svgCopy = '{{icon "copy"}}';
     function onCopyFieldSuccess(btnId) {
         const btn = document.getElementById(btnId);
         const iconEl = btn.querySelector('.icon');
@@ -259,7 +259,7 @@
         const styleLabel = document.getElementById('badgeStyleLabel');
         const styleButtons = document.querySelectorAll('.badge-style-btn');
 
-        var styleClasses = {detailed: 'active-detailed', flat: 'active-compact', covert: 'active-covert'};
+        let styleClasses = {detailed: 'active-detailed', flat: 'active-compact', covert: 'active-covert'};
 
         styleButtons.forEach(function(btn) {
             btn.addEventListener('click', function() {
@@ -271,20 +271,20 @@
             });
         });
 
-        var animatedCard = document.getElementById('badgeAnimatedCard');
-        var btnDownloadAnim = document.getElementById('btnDownloadAnimated');
-        var animSizeLabel = document.getElementById('animSizeLabel');
-        var animatedPreview = document.getElementById('animatedPreview');
-        var animatedImg = document.getElementById('animatedPreviewImg');
-        var btnAPNG = document.getElementById('btnFormatAPNG');
-        var btnGIFfmt = document.getElementById('btnFormatGIF');
-        var fmtDescAPNG = document.getElementById('formatDescription');
-        var fmtDescGIF = document.getElementById('formatDescriptionGIF');
-        var animState = { param: '', style: '', val: '' };
+        let animatedCard = document.getElementById('badgeAnimatedCard');
+        let btnDownloadAnim = document.getElementById('btnDownloadAnimated');
+        let animSizeLabel = document.getElementById('animSizeLabel');
+        let animatedPreview = document.getElementById('animatedPreview');
+        let animatedImg = document.getElementById('animatedPreviewImg');
+        let btnAPNG = document.getElementById('btnFormatAPNG');
+        let btnGIFfmt = document.getElementById('btnFormatGIF');
+        let fmtDescAPNG = document.getElementById('formatDescription');
+        let fmtDescGIF = document.getElementById('formatDescriptionGIF');
+        let animState = { param: '', style: '', val: '' };
 
         function loadAnimatedBadge(fmt) {
-            var ext = fmt === 'gif' ? 'gif' : 'png';
-            var animURL = baseURL + '/badge/animated?' + animState.param + '&style=' + animState.style + '&format=' + fmt;
+            let ext = fmt === 'gif' ? 'gif' : 'png';
+            let animURL = baseURL + '/badge/animated?' + animState.param + '&style=' + animState.style + '&format=' + fmt;
             btnDownloadAnim.href = animURL;
             btnDownloadAnim.download = animState.val.replaceAll(/[^a-zA-Z0-9.-]/g, '_') + '-dns-topology.' + ext;
             btnDownloadAnim.classList.remove('d-none');
@@ -311,10 +311,10 @@
 
             fetch(animURL).then(function(r) {
                 if (!r.ok) throw new Error('render failed');
-                var size = r.headers.get('content-length');
+                let size = r.headers.get('content-length');
                 return r.blob().then(function(b) { return {blob: b, size: size || b.size}; });
             }).then(function(res) {
-                var kb = Math.round(Number.parseInt(res.size, 10) / 1024);
+                let kb = Math.round(Number.parseInt(res.size, 10) / 1024);
                 animSizeLabel.textContent = kb + ' KB';
                 animatedImg.src = URL.createObjectURL(res.blob);
                 animatedPreview.classList.remove('d-none');
@@ -331,11 +331,11 @@
         }
 
         document.getElementById('btnGenerateBadge').addEventListener('click', function() {
-            var val = input.value.trim();
+            let val = input.value.trim();
             if (!val) return;
 
-            var param;
-            var reportURL;
+            let param;
+            let reportURL;
             if (isNumeric(val)) {
                 param = 'id=' + encodeURIComponent(val);
                 reportURL = baseURL + '/analyze?id=' + encodeURIComponent(val);
@@ -344,7 +344,7 @@
                 reportURL = baseURL + '/analyze?domain=' + encodeURIComponent(val);
             }
 
-            var badgeURL = baseURL + '/badge?' + param + (style === 'flat' ? '' : '&style=' + style) + '&t=' + Date.now();
+            let badgeURL = baseURL + '/badge?' + param + (style === 'flat' ? '' : '&style=' + style) + '&t=' + Date.now();
 
             if (style === 'detailed' || style === 'covert') {
                 animatedCard.classList.remove('d-none');
@@ -360,16 +360,16 @@
                 if (!r.ok) { throw new Error('fetch failed'); }
                 return r.text();
             }).then(function(svgText) {
-                var parser = new DOMParser();
-                var doc = parser.parseFromString(svgText, 'image/svg+xml');
-                var svgEl = doc.querySelector('svg');
+                let parser = new DOMParser();
+                let doc = parser.parseFromString(svgText, 'image/svg+xml');
+                let svgEl = doc.querySelector('svg');
                 if (!svgEl || doc.querySelector('parsererror')) throw new Error('invalid svg');
                 svgEl.querySelectorAll('script,foreignObject').forEach(function(el) { el.remove(); });
                 svgEl.removeAttribute('width');
                 svgEl.removeAttribute('height');
                 svgEl.classList.add('u-badge-preview-img');
                 if (!svgEl.getAttribute('preserveAspectRatio')) svgEl.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-                var link = document.createElement('a');
+                let link = document.createElement('a');
                 link.href = reportURL;
                 link.target = '_blank';
                 link.rel = 'noopener';
@@ -394,9 +394,9 @@
             document.getElementById('embedURL').value = badgeURL;
             document.getElementById('embedCurl').value = "curl -s '" + badgeURL + "' > dns-badge.svg";
 
-            var shieldsParam = isNumeric(val) ? 'id=' : 'domain=';
-            var shieldsEndpoint = baseURL + '/badge/shields?' + shieldsParam + encodeURIComponent(val);
-            var shieldsURL = 'https://img.shields.io/endpoint?url=' + encodeURIComponent(shieldsEndpoint);
+            let shieldsParam = isNumeric(val) ? 'id=' : 'domain=';
+            let shieldsEndpoint = baseURL + '/badge/shields?' + shieldsParam + encodeURIComponent(val);
+            let shieldsURL = 'https://img.shields.io/endpoint?url=' + encodeURIComponent(shieldsEndpoint);
             document.getElementById('embedShieldsURL').value = shieldsURL;
             document.getElementById('embedShieldsMarkdown').value = '[![DNS Tool Security](' + shieldsURL + ')](' + reportURL + ')';
         });
@@ -412,7 +412,7 @@
             if (e.key === 'Enter') document.getElementById('btnGenerateBadge').click();
         });
 
-        var params = new URLSearchParams(globalThis.location.search);
+        let params = new URLSearchParams(globalThis.location.search);
         if (params.get('domain')) {
             input.value = params.get('domain');
             document.getElementById('btnGenerateBadge').click();

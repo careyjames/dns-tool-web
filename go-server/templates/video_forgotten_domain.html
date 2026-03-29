@@ -214,7 +214,7 @@
 
     <main id="main-content" class="container mt-4 mb-5">
         <div class="video-page-wrap">
-            <div class="video-container" role="group" aria-label="Video: Forgotten Domain — why dormant domains need published DNS policy">
+            <section class="video-container" aria-label="Video: Forgotten Domain — why dormant domains need published DNS policy">
                 {{if .YouTubeID}}
                 <div style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden">
                     <iframe src="https://www.youtube-nocookie.com/embed/{{.YouTubeID}}?rel=0&modestbranding=1" style="position:absolute;top:0;left:0;width:100%;height:100%;border:none" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen title="Forgotten Domain — why dormant domains need published DNS policy"></iframe>
@@ -226,7 +226,7 @@
                     Your browser does not support the video tag.
                 </video>
                 {{end}}
-            </div>
+            </section>
 
             <div class="video-meta">
                 <p class="mb-1" style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#d4a853">Domain Confessions</p>
@@ -234,22 +234,22 @@
                 <p style="font-size:0.82rem;color:#c8956a;font-style:italic;margin-bottom:0.75rem">Trigger Warning: If you disable security settings just to make things work, this video may not be for you. In other words, you may experience feelings of shame.</p>
                 <p>A domain registered for ten years with no published mail policy is not dormant &mdash; it is exposed. Reputation systems do not distinguish between negligence and compromise. They only see the absence of published policy.</p>
 
-                <div class="dns-records" role="figure" aria-label="Recommended DNS records for dormant domains">
+                <figure class="dns-records" aria-label="Recommended DNS records for dormant domains">
                     <span class="rec-label">SPF:</span> v=spf1 -all<br>
                     <span class="rec-label">DMARC:</span> v=DMARC1; p=reject;<br>
                     <span class="rec-label">MX:</span> 0 .
-                </div>
+                </figure>
 
                 <p class="mt-3">If a domain sends no mail, publish SPF <code>-all</code>, DMARC <code>reject</code>, and Null MX. Silence is not protection.</p>
 
                 <div class="share-bar">
                     <span class="share-bar-label">{{icon "share-alt"}} Share:</span>
-                    <button type="button" class="share-btn" id="copyLinkBtn" aria-label="Copy link to clipboard">{{icon "link"}} Copy Link</button>
-                    <a href="https://twitter.com/intent/tweet?url=https%3A%2F%2Fdnstool.it-help.tech%2Fvideo%2Fforgotten-domain&text=Domain%20Confessions%3A%20If%20you%20disable%20security%20settings%20just%20to%20make%20things%20work%2C%20this%20video%20may%20not%20be%20for%20you." class="share-btn" target="_blank" rel="noopener noreferrer" aria-label="Share on X (Twitter)">{{icon "twitter"}} Post</a>
-                    <a href="https://www.linkedin.com/sharing/share-offsite/?url=https%3A%2F%2Fdnstool.it-help.tech%2Fvideo%2Fforgotten-domain" class="share-btn" target="_blank" rel="noopener noreferrer" aria-label="Share on LinkedIn">{{icon "linkedin"}} Share</a>
-                    <a href="mailto:?subject=Domain%20Confessions%20%E2%80%94%20Forgotten%20Domain%20%E2%80%94%20DNS%20Tool&body=Domain%20Confessions%3A%20If%20you%20disable%20security%20settings%20just%20to%20make%20things%20work%2C%20this%20video%20may%20not%20be%20for%20you.%0A%0Ahttps%3A%2F%2Fdnstool.it-help.tech%2Fvideo%2Fforgotten-domain" class="share-btn" aria-label="Share via email">{{icon "envelope"}} Email</a>
+                    <button type="button" class="share-btn" id="copyLinkBtn"><span aria-hidden="true">{{icon "link"}}</span> Copy Link</button>
+                    <a href="https://twitter.com/intent/tweet?url=https%3A%2F%2Fdnstool.it-help.tech%2Fvideo%2Fforgotten-domain&text=Domain%20Confessions%3A%20If%20you%20disable%20security%20settings%20just%20to%20make%20things%20work%2C%20this%20video%20may%20not%20be%20for%20you." class="share-btn" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">{{icon "twitter"}}</span> Post</a>
+                    <a href="https://www.linkedin.com/sharing/share-offsite/?url=https%3A%2F%2Fdnstool.it-help.tech%2Fvideo%2Fforgotten-domain" class="share-btn" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">{{icon "linkedin"}}</span> Share</a>
+                    <a href="mailto:?subject=Domain%20Confessions%20%E2%80%94%20Forgotten%20Domain%20%E2%80%94%20DNS%20Tool&body=Domain%20Confessions%3A%20If%20you%20disable%20security%20settings%20just%20to%20make%20things%20work%2C%20this%20video%20may%20not%20be%20for%20you.%0A%0Ahttps%3A%2F%2Fdnstool.it-help.tech%2Fvideo%2Fforgotten-domain" class="share-btn"><span aria-hidden="true">{{icon "envelope"}}</span> Email</a>
                     {{if .YouTubeID}}
-                    <a href="https://www.youtube.com/watch?v={{.YouTubeID}}" class="share-btn share-btn-yt" target="_blank" rel="noopener noreferrer" aria-label="Watch on YouTube">{{icon "play-circle"}} Watch on YouTube</a>
+                    <a href="https://www.youtube.com/watch?v={{.YouTubeID}}" class="share-btn share-btn-yt" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">{{icon "play-circle"}}</span> Watch on YouTube</a>
                     {{end}}
                 </div>
 
@@ -266,10 +266,10 @@
     {{template "scripts" .}}
     <script nonce="{{.CspNonce}}">
     (function() {
-        var btn = document.getElementById('copyLinkBtn');
+        const btn = document.getElementById('copyLinkBtn');
         if (!btn) return;
         btn.addEventListener('click', function() {
-            var url = 'https://dnstool.it-help.tech/video/forgotten-domain';
+            const url = 'https://dnstool.it-help.tech/video/forgotten-domain';
             if (navigator.clipboard && navigator.clipboard.writeText) {
                 navigator.clipboard.writeText(url).then(function() {
                     btn.classList.add('share-copied');
