@@ -1,11 +1,14 @@
 package handlers
 
 import (
+        "html/template"
         "net/http"
         "net/http/httptest"
         "strings"
         "testing"
         "time"
+
+        "dnstool/go-server/internal/config"
 
         "github.com/gin-gonic/gin"
 )
@@ -668,6 +671,84 @@ func TestCovertSummaryLines_SingleVector_NoTagline(t *testing.T) {
         }
         if len(lines) > 0 && !strings.Contains(lines[0].text, "attack vector") {
                 t.Errorf("expected attack vector text, got %q", lines[0].text)
+        }
+}
+
+func setupTestRouter(h *AnalysisHandler) *gin.Engine {
+        gin.SetMode(gin.TestMode)
+        r := gin.New()
+        tmpl := template.Must(template.New("index.html").Parse(`{{range .FlashMessages}}{{.Message}}{{end}}`))
+        tmpl = template.Must(tmpl.New("analyze.html").Parse(`{{.Domain}}`))
+        tmpl = template.Must(tmpl.New("analyze_covert.html").Parse(`{{.Domain}}`))
+        r.SetHTMLTemplate(tmpl)
+        r.POST("/analyze", h.Analyze)
+        r.GET("/analyze", h.Analyze)
+        return r
+}
+
+func TestAnalyze_EmptyDomain(t *testing.T) {
+        cfg := &config.Config{
+                AppVersion: "26.40.19",
+                BaseURL:    "https://dnstool.it-help.tech",
+        }
+        h := &AnalysisHandler{Config: cfg}
+        r := setupTestRouter(h)
+
+        req := httptest.NewRequest("POST", "/analyze", strings.NewReader("domain="))
+        req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+        w := httptest.NewRecorder()
+        r.ServeHTTP(w, req)
+        if w.Code != http.StatusOK {
+                t.Errorf("status = %d, want 200", w.Code)
+        }
+        if !strings.Contains(w.Body.String(), "Please enter a domain name") {
+                t.Error("expected 'Please enter a domain name' flash message")
+        }
+}
+
+func TestAnalyze_InvalidDomain(t *testing.T) {
+        cfg := &config.Config{
+                AppVersion: "26.40.19",
+                BaseURL:    "https://dnstool.it-help.tech",
+        }
+        h := &AnalysisHandler{Config: cfg}
+        r := setupTestRouter(h)
+
+        req := httptest.NewRequest("POST", "/analyze", strings.NewReader("domain=not+a+valid+domain!!!"))
+        req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+        w := httptest.NewRecorder()
+        r.ServeHTTP(w, req)
+        if w.Code != http.StatusOK {
+                t.Errorf("status = %d, want 200", w.Code)
+        }
+        if !strings.Contains(w.Body.String(), "Invalid domain name") {
+                t.Error("expected 'Invalid domain name' flash message")
+        }
+}
+
+func TestNormalizePEM_NoPEMHeader(t *testing.T) {
+        got := normalizePEM("this is just some random text without pem markers")
+        if got != "this is just some random text without pem markers" {
+                t.Errorf("expected passthrough, got %q", got)
+        }
+}
+
+func TestFindPEMFooter_NoFooterTokens(t *testing.T) {
+        tokens := []string{"bodydata"}
+        footer, body := findPEMFooter(tokens, 0)
+        if footer != "bodydata" {
+                t.Errorf("footer = %q", footer)
+        }
+        _ = body
+}
+
+func TestFindPEMFooter_EmptyBody(t *testing.T) {
+        footer, body := findPEMFooter([]string{}, 0)
+        if footer != "" {
+                t.Errorf("expected empty footer, got %q", footer)
+        }
+        if len(body) != 0 {
+                t.Errorf("expected empty body, got %v", body)
         }
 }
 
