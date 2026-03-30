@@ -291,11 +291,11 @@ func TestExtractNestedStatus_Branches(t *testing.T) {
 }
 
 func TestBoolToPresence_Coverage(t *testing.T) {
-        if got := boolToPresence(true); got != "Yes" {
-                t.Errorf("boolToPresence(true) = %q, want Yes", got)
+        if got := boolToPresence(true); got != "present" {
+                t.Errorf("boolToPresence(true) = %q, want present", got)
         }
-        if got := boolToPresence(false); got != "No" {
-                t.Errorf("boolToPresence(false) = %q, want No", got)
+        if got := boolToPresence(false); got != agentErrNotFound {
+                t.Errorf("boolToPresence(false) = %q, want %q", got, agentErrNotFound)
         }
 }
 
