@@ -451,6 +451,135 @@ func TestBuildAgentJSON_NilSubsections(t *testing.T) {
         }
 }
 
+func TestBuildAgentJSON_BimiCaaPresent(t *testing.T) {
+        gin.SetMode(gin.TestMode)
+        cfg := &config.Config{
+                AppVersion: "26.40.19",
+                BaseURL:    "https://dnstool.it-help.tech",
+        }
+        h := NewAgentHandler(cfg, nil)
+
+        results := map[string]any{
+                "risk_level":    "success",
+                "domain_exists": true,
+                "spf_analysis":  map[string]any{"status": "pass"},
+                "dmarc_analysis": map[string]any{
+                        "status": "pass",
+                        "policy": "reject",
+                },
+                "dkim_analysis":    map[string]any{"verdict": "pass"},
+                "dnssec_analysis":  map[string]any{"signed": true},
+                "mta_sts_analysis": map[string]any{"mode": "enforce"},
+                "bimi_analysis":    map[string]any{"has_bimi": true},
+                "caa_analysis":     map[string]any{"has_caa": true},
+                "posture": map[string]any{
+                        "score": float64(95),
+                        "grade": "A+",
+                        "label": "Low Risk",
+                },
+                "subdomain_discovery": map[string]any{
+                        "unique_subdomains": 20,
+                        "unique_certs":      10,
+                        "cname_count":       3,
+                },
+        }
+
+        j := h.buildAgentJSON("secure.example.com", results)
+
+        emailAuth := j["email_authentication"].(gin.H)
+        bimi := emailAuth["bimi"].(gin.H)
+        if bimi["present"] != true {
+                t.Error("expected bimi present=true")
+        }
+
+        transport := j["transport_security"].(gin.H)
+        mtaSTS := transport["mta_sts"].(gin.H)
+        if mtaSTS["mode"] != "enforce" {
+                t.Errorf("mta_sts mode = %v, want enforce", mtaSTS["mode"])
+        }
+        caa := transport["caa"].(gin.H)
+        if caa["present"] != true {
+                t.Error("expected caa present=true")
+        }
+
+        subdomain := j["subdomain_discovery"].(gin.H)
+        if subdomain["subdomains_found"] != 20 {
+                t.Errorf("subdomains_found = %v, want 20", subdomain["subdomains_found"])
+        }
+}
+
+func TestBuildAgentJSON_DmarcPolicyEmpty(t *testing.T) {
+        gin.SetMode(gin.TestMode)
+        cfg := &config.Config{
+                AppVersion: "26.40.19",
+                BaseURL:    "https://dnstool.it-help.tech",
+        }
+        h := NewAgentHandler(cfg, nil)
+
+        results := map[string]any{
+                "dmarc_analysis": map[string]any{"status": "pass", "policy": ""},
+        }
+
+        j := h.buildAgentJSON("test.com", results)
+        emailAuth := j["email_authentication"].(gin.H)
+        dmarc := emailAuth["dmarc"].(gin.H)
+        if dmarc["policy"] != "none" {
+                t.Errorf("empty policy should default to none, got %v", dmarc["policy"])
+        }
+}
+
+func TestBuildAgentHTML_WithBimiAndCAA(t *testing.T) {
+        gin.SetMode(gin.TestMode)
+        cfg := &config.Config{
+                AppVersion: "26.40.19",
+                BaseURL:    "https://dnstool.it-help.tech",
+        }
+        h := NewAgentHandler(cfg, nil)
+
+        results := map[string]any{
+                "risk_level":       "success",
+                "domain_exists":    true,
+                "spf_analysis":     map[string]any{"status": "pass"},
+                "dmarc_analysis":   map[string]any{"status": "pass", "policy": "reject"},
+                "dkim_analysis":    map[string]any{"status": "pass"},
+                "dnssec_analysis":  map[string]any{"signed": true},
+                "mta_sts_analysis": map[string]any{"mode": "enforce"},
+                "bimi_analysis":    map[string]any{"has_bimi": true},
+                "caa_analysis":     map[string]any{"has_caa": true},
+                "posture": map[string]any{
+                        "score": float64(98),
+                        "grade": "A+",
+                        "label": "Low Risk",
+                },
+                "subdomain_discovery": map[string]any{
+                        "unique_subdomains": 15,
+                        "unique_certs":      8,
+                        "cname_count":       4,
+                },
+        }
+
+        html := h.buildAgentHTML("secure.example.com", results, 100)
+        if !strings.Contains(html, "present") {
+                t.Error("expected bimi/caa presence in HTML")
+        }
+        if !strings.Contains(html, "enforce") {
+                t.Error("expected MTA-STS enforce mode in HTML")
+        }
+        if !strings.Contains(html, "secure.example.com") {
+                t.Error("expected domain in HTML")
+        }
+        if !strings.Contains(html, "/api/analysis/100/checksum") {
+                t.Error("expected checksum URL with analysis ID")
+        }
+}
+
+func TestExecer_NilFields(t *testing.T) {
+        h := &AnalysisHandler{}
+        if h.execer() != nil {
+                t.Error("expected nil from execer with no DB and no statsExec")
+        }
+}
+
 func TestEsc(t *testing.T) {
         tests := []struct {
                 in, want string
