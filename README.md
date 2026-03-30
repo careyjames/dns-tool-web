@@ -1,10 +1,6 @@
 # DNS Tool — Domain Security Intelligence Platform
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18854899.svg)](https://doi.org/10.5281/zenodo.18854899)
 [![License: BUSL-1.1](https://img.shields.io/badge/License-BUSL--1.1-blue.svg)](LICENSE)
-[![Quality Gate (Open-Core)](https://sonarcloud.io/api/project_badges/measure?project=ithelpsandiego_dns-tool-web&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=ithelpsandiego_dns-tool-web)
-[![AI Code Assurance (Open-Core)](https://sonarcloud.io/api/project_badges/ai_code_assurance?project=ithelpsandiego_dns-tool-web)](https://sonarcloud.io/summary/new_code?id=ithelpsandiego_dns-tool-web)
-[![Quality Gate (Full Product)](https://sonarcloud.io/api/project_badges/measure?project=ithelpsandiego_dns-tool-full&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=ithelpsandiego_dns-tool-full)
-[![AI Code Assurance (Full Product)](https://sonarcloud.io/api/project_badges/ai_code_assurance?project=ithelpsandiego_dns-tool-full)](https://sonarcloud.io/summary/new_code?id=ithelpsandiego_dns-tool-full)
 
 > **Decision-ready intelligence, not just DNS data.**
 
