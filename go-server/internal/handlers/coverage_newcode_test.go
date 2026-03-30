@@ -8,7 +8,10 @@ import (
         "testing"
         "time"
 
+        "dnstool/go-server/internal/analyzer"
         "dnstool/go-server/internal/config"
+        "dnstool/go-server/internal/icae"
+        "dnstool/go-server/internal/icuae"
 
         "github.com/gin-gonic/gin"
 )
@@ -705,6 +708,61 @@ func TestAnalyze_EmptyDomain(t *testing.T) {
                 t.Error("expected 'Please enter a domain name' flash message")
         }
 }
+
+func newTestAnalysisHandler() *AnalysisHandler {
+        cfg := &config.Config{
+                AppVersion: "26.40.19",
+                BaseURL:    "https://dnstool.it-help.tech",
+        }
+        a := analyzer.New(analyzer.WithMaxConcurrent(1), analyzer.WithInitialIANAFetch(false))
+        return &AnalysisHandler{
+                Config:        cfg,
+                Analyzer:      a,
+                Calibration:   icae.NewCalibrationEngine(),
+                DimCharts:     icuae.NewDimensionCharts(),
+                ProgressStore: NewProgressStore(),
+        }
+}
+
+func TestAnalyze_WantsJSON(t *testing.T) {
+        h := newTestAnalysisHandler()
+        defer h.ProgressStore.Close()
+
+        r := setupTestRouter(h)
+
+        req := httptest.NewRequest("POST", "/analyze", strings.NewReader("domain=example.com"))
+        req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+        req.Header.Set("Accept", "application/json")
+        w := httptest.NewRecorder()
+        r.ServeHTTP(w, req)
+        if w.Code != http.StatusAccepted {
+                t.Errorf("status = %d, want 202", w.Code)
+        }
+        body := w.Body.String()
+        if !strings.Contains(body, "token") {
+                t.Error("expected token in JSON response")
+        }
+        if !strings.Contains(body, "example.com") {
+                t.Error("expected domain in JSON response")
+        }
+        time.Sleep(50 * time.Millisecond)
+}
+
+func TestAnalyze_FailedAnalysis(t *testing.T) {
+        h := newTestAnalysisHandler()
+        defer h.ProgressStore.Close()
+
+        r := setupTestRouter(h)
+
+        req := httptest.NewRequest("POST", "/analyze", strings.NewReader("domain=test.invalid"))
+        req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+        w := httptest.NewRecorder()
+        r.ServeHTTP(w, req)
+        if w.Code != http.StatusOK {
+                t.Errorf("status = %d, want 200", w.Code)
+        }
+}
+
 
 func TestAnalyze_InvalidDomain(t *testing.T) {
         cfg := &config.Config{
